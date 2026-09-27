@@ -14,9 +14,9 @@ enum AppSection: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .home: "Acasă"
-        case .library: "Bibliotecă"
-        case .settings: "Setări"
+        case .home: "Home"
+        case .library: "Library"
+        case .settings: "Settings"
         }
     }
 
@@ -39,10 +39,10 @@ enum LibraryFilter: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .all: "Toate"
+        case .all: "All"
         case .videos: "Video"
-        case .images: "Imagini"
-        case .favorites: "Favorite"
+        case .images: "Images"
+        case .favorites: "Favorites"
         }
     }
 
@@ -64,7 +64,7 @@ struct ImportJob: Identifiable {
 @MainActor
 final class AppModel: ObservableObject {
     @Published var selectedSection: AppSection = .home
-    /// Item whose full-screen detail page is open (Apple TV style "product page").
+    /// Item whose full-window detail page is open.
     @Published var detailMediaID: UUID?
     @Published var libraryFilter: LibraryFilter = .all
     @Published var searchText = ""
@@ -72,7 +72,7 @@ final class AppModel: ObservableObject {
     @Published var mediaURLs: [UUID: MediaAssetURLs] = [:]
     @Published var selectedMediaID: UUID?
     @Published var selectedConfigurationDestination: WallpaperDestination = .desktop
-    @Published var draftProfile = WallpaperProfile(name: "Profilul meu")
+    @Published var draftProfile = WallpaperProfile(name: "My Profile")
     @Published var activeProfile: WallpaperProfile?
     @Published var displays: [DisplayDescriptor] = DisplayCatalog.connectedDisplays
     @Published var importJobs: [ImportJob] = []
@@ -184,7 +184,7 @@ final class AppModel: ObservableObject {
     }
 
     var backendLocationLabel: String {
-        backend?.directories.root.path(percentEncoded: false) ?? "Indisponibilă"
+        backend?.directories.root.path(percentEncoded: false) ?? "Unavailable"
     }
 
     var loginWallpaperNeedsUpdate: Bool {
@@ -200,7 +200,7 @@ final class AppModel: ObservableObject {
         await refresh()
         isLoading = false
         if Bundle.main.bundleURL.path.hasPrefix("/Volumes/"), bannerMessage == nil {
-            bannerMessage = "Mută Wallpaper Studio în Applications pentru ca fundalul video să pornească automat și după autentificare."
+            bannerMessage = "Move Wallpaper Studio to Applications so the video wallpaper also starts automatically after login."
         }
     }
 
@@ -244,8 +244,8 @@ final class AppModel: ObservableObject {
 
     func chooseFiles() {
         let panel = NSOpenPanel()
-        panel.title = "Importă în Bibliotecă"
-        panel.prompt = "Importă"
+        panel.title = "Import to Library"
+        panel.prompt = "Import"
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.allowedContentTypes = [.image, .movie, .video]
@@ -260,7 +260,7 @@ final class AppModel: ObservableObject {
             importJobs.append(ImportJob(
                 id: jobID,
                 title: url.deletingPathExtension().lastPathComponent,
-                status: "Se pregătește",
+                status: "Preparing",
                 isFailed: false
             ))
 
@@ -349,7 +349,7 @@ final class AppModel: ObservableObject {
             profile: draftProfile,
             destinations: Set(WallpaperDestination.allCases),
             applyingDestination: nil,
-            successLabel: "Configurația a fost aplicată."
+            successLabel: "Configuration applied."
         )
     }
 
@@ -385,7 +385,7 @@ final class AppModel: ObservableObject {
             profile: profile,
             destinations: destinations,
             applyingDestination: destination,
-            successLabel: "\(Self.destinationLabel(destination)) a fost aplicat."
+            successLabel: "\(Self.destinationLabel(destination)) applied."
         )
         guard succeeded else { return }
         var retainedDraft = previousDraft
@@ -416,7 +416,7 @@ final class AppModel: ObservableObject {
             profile: profile,
             destinations: [.screenSaver, .lockScreen],
             applyingDestination: .lockScreen,
-            successLabel: "Screen Saver și fundalul de autentificare au fost configurate."
+            successLabel: "Screen Saver and login background configured."
         )
         guard succeeded else { return }
         var retainedDraft = previousDraft
@@ -438,7 +438,7 @@ final class AppModel: ObservableObject {
         do {
             try await installNativeLockScreen(for: profile)
             try integrations.requestNativeLockScreen()
-            successMessage = "Mac-ul a fost blocat cu videoclipul selectat pe ecranul securizat."
+            successMessage = "Mac locked with the selected video on the secure screen."
         } catch {
             show(error)
         }
@@ -450,7 +450,7 @@ final class AppModel: ObservableObject {
         guard activeProfile?.screenSaver == requested else { return }
         do {
             let application = try await integrations.startScreenSaver()
-            successMessage = "Screen Saver-ul Wallpaper Studio a pornit cu videoclipul selectat."
+            successMessage = "Wallpaper Studio Screen Saver started with the selected video."
             Task { [weak self] in
                 guard let self else { return }
                 await self.integrations.waitForTermination(of: application)
@@ -465,7 +465,7 @@ final class AppModel: ObservableObject {
         Task {
             do {
                 try await backend.restoreExperimentalLockScreen()
-                successMessage = "Setările Lock Screen au fost restaurate."
+                successMessage = "Lock Screen settings restored."
             } catch {
                 show(error)
             }
@@ -480,7 +480,7 @@ final class AppModel: ObservableObject {
                 loginWallpaperConfigurationSignature,
                 forKey: "loginWallpaperConfigurationSignature"
             )
-            successMessage = "Videoclipul a fost instalat în motorul nativ Wallpaper din macOS 26."
+            successMessage = "Video installed in the native macOS 26 wallpaper engine."
         } catch {
             show(error)
         }
@@ -536,7 +536,7 @@ final class AppModel: ObservableObject {
         isLoginWallpaperOperationRunning = true
         bannerMessage = nil
         successMessage = nil
-        loginWallpaperOperationLabel = "Se restaurează fundalul Apple…"
+        loginWallpaperOperationLabel = "Restoring the Apple wallpaper…"
         defer {
             isLoginWallpaperOperationRunning = false
             loginWallpaperOperationLabel = nil
@@ -552,7 +552,7 @@ final class AppModel: ObservableObject {
                 try await backend.restoreAerialLockScreenCarrier()
             }
             UserDefaults.standard.removeObject(forKey: "loginWallpaperConfigurationSignature")
-            successMessage = "Extensia a fost dezactivată, iar configurația Wallpaper Apple a fost restaurată."
+            successMessage = "Extension disabled and the Apple wallpaper configuration restored."
         } catch {
             show(error)
         }
@@ -572,7 +572,7 @@ final class AppModel: ObservableObject {
         do {
             try integrations.installScreenSaver()
             isScreenSaverInstalled = true
-            successMessage = "Screen Saver-ul Wallpaper Studio a fost actualizat."
+            successMessage = "Wallpaper Studio Screen Saver updated."
         } catch {
             show(error)
         }
@@ -729,7 +729,7 @@ final class AppModel: ObservableObject {
             appliedDisplayIDs.merge(verifiedDisplayIDs) { _, new in new }
 
             if !rendererReady {
-                successMessage = "\(successLabel) Păstrează aplicația deschisă pentru redarea video pe Desktop."
+                successMessage = "\(successLabel) Keep the app open for video playback on the Desktop."
             } else {
                 successMessage = successLabel
             }
@@ -883,24 +883,24 @@ final class AppModel: ObservableObject {
 
     private static func label(for phase: ImportPhase) -> String {
         switch phase {
-        case .validating: "Se verifică fișierul"
-        case .copying: "Se copiază"
-        case .inspecting: "Se citește informația media"
+        case .validating: "Validating file"
+        case .copying: "Copying"
+        case .inspecting: "Reading media info"
         case let .preparing(progress):
-            progress.map { "Se optimizează · \(Int($0 * 100))%" } ?? "Se optimizează"
-        case .generatingPreview: "Se creează previzualizarea"
-        case .saving: "Se salvează"
+            progress.map { "Optimizing · \(Int($0 * 100))%" } ?? "Optimizing"
+        case .generatingPreview: "Generating preview"
+        case .saving: "Saving"
         }
     }
 
     private static func label(for phase: YouTubeImportPhase) -> String {
         switch phase {
-        case .validatingURL: "Se verifică linkul"
-        case .readingMetadata: "Se citește informația video"
+        case .validatingURL: "Validating link"
+        case .readingMetadata: "Reading video info"
         case let .downloading(progress):
-            progress.map { "Se descarcă · \(Int($0 * 100))%" } ?? "Se descarcă"
+            progress.map { "Downloading · \(Int($0 * 100))%" } ?? "Downloading"
         case let .preparingMedia(phase): label(for: phase)
-        case .completed: "Adăugat în Bibliotecă"
+        case .completed: "Added to Library"
         }
     }
 
@@ -940,17 +940,17 @@ enum AppModelError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .backendUnavailable:
-            "Biblioteca nu poate fi deschisă."
+            "The library can't be opened."
         case .experimentalLockScreenDisabled:
-            "Activează mai întâi funcția experimentală Lock Screen în Setări."
+            "Enable the experimental Lock Screen feature in Settings first."
         case .invalidDestinationSelection:
-            "Această combinație de destinații nu poate fi aplicată."
+            "This combination of destinations can't be applied."
         case .mediaInUse:
-            "Acest element este folosit de configurația curentă. Alege alt conținut înainte să-l ștergi."
+            "This item is used by the current configuration. Choose other content before deleting it."
         case .lockScreenMediaRequired:
-            "Alege un video sau o imagine pentru Lock Screen înainte de blocare."
+            "Choose a video or image for the Lock Screen before locking."
         case .loginWallpaperUpdateRequired:
-            "Alege un videoclip din Bibliotecă și deschide Configurare pentru Lock Screen înainte de blocare."
+            "Choose a video from the Library and set it for the Lock Screen before locking."
         }
     }
 }

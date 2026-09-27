@@ -4,7 +4,7 @@ import SwiftUI
 import WallpaperCore
 
 /// Full-bleed artwork for heroes and detail pages: a silent looping video for video
-/// wallpapers (after a short delay, like Apple TV's autoplaying previews), the poster
+/// wallpapers (after a short delay, so scrolling stays smooth), the poster
 /// for images and while the video spins up.
 struct MotionBackdrop: View {
     let item: MediaItem
@@ -112,8 +112,8 @@ struct LoopingVideoView: NSViewRepresentable {
     }
 }
 
-/// A 16:9 poster card with a tvOS focus lift. The title sits under the card and
-/// brightens on focus, exactly like Apple TV shelves.
+/// A 16:9 poster card with a hover focus lift. The title sits under the card and
+/// brightens on focus.
 struct PosterCard: View {
     let item: MediaItem
     let thumbnailURL: URL?
@@ -164,7 +164,7 @@ struct PosterCard: View {
                     if !liveOn.isEmpty {
                         HStack(spacing: 4) {
                             Circle().fill(.green).frame(width: 6, height: 6)
-                            Text("ACTIV")
+                            Text("LIVE")
                         }
                         .font(.system(size: 10, weight: .heavy))
                         .foregroundStyle(.white)
@@ -197,11 +197,11 @@ struct PosterCard: View {
         .onHover { isHovering = $0 }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(item.title), \(item.kindLabel)")
-        .accessibilityHint("Deschide pagina wallpaperului")
+        .accessibilityHint("Opens the wallpaper page")
     }
 }
 
-/// Horizontal Apple TV shelf.
+/// Horizontal, view-aligned shelf of posters.
 struct PosterShelf: View {
     @EnvironmentObject private var model: AppModel
     let title: String
@@ -229,7 +229,7 @@ struct PosterShelf: View {
             TVShelfHeader(
                 title: title,
                 subtitle: subtitle,
-                action: seeAll.map { (title: "Vezi tot", run: $0) }
+                action: seeAll.map { (title: "See All", run: $0) }
             )
             .padding(.horizontal, TV.pageInset)
 
@@ -269,10 +269,10 @@ struct MediaContextMenu: View {
     }
 
     var body: some View {
-        Button("Deschide", systemImage: "arrow.up.left.and.arrow.down.right") {
+        Button("Open", systemImage: "arrow.up.left.and.arrow.down.right") {
             withAnimation(TV.pageSpring) { model.openDetail(item) }
         }
-        Menu("Setează pe…", systemImage: "rectangle.on.rectangle") {
+        Menu("Set on…", systemImage: "rectangle.on.rectangle") {
             ForEach(WallpaperDestination.allCases, id: \.self) { destination in
                 Button(destination.title, systemImage: destination.symbol) {
                     model.configure(item, for: destination)
@@ -282,12 +282,12 @@ struct MediaContextMenu: View {
         }
         .disabled(model.isApplying)
         Divider()
-        Button(item.isFavorite ? "Elimină din Favorite" : "Adaugă la Favorite",
+        Button(item.isFavorite ? "Remove from Favorites" : "Add to Favorites",
                systemImage: item.isFavorite ? "heart.slash" : "heart") {
             model.toggleFavorite(item)
         }
         if let url = model.mediaURLs[item.id]?.prepared {
-            Button("Arată în Finder", systemImage: "folder") {
+            Button("Show in Finder", systemImage: "folder") {
                 NSWorkspace.shared.activateFileViewerSelecting([url])
             }
         }

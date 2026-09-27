@@ -1,0 +1,38 @@
+WALLPAPER STUDIO — INSTALLATION
+
+Requires macOS 15 or later. Lock Screen video requires macOS 26.
+
+1. Quit any running copy of Wallpaper Studio.
+2. Drag "Wallpaper Studio" into the Applications folder and replace the old copy.
+3. Eject the DMG and open the app from Applications only.
+   On first launch: right-click the app → Open.
+4. Import an image or a video into the Library (⌘O, or drag files into the window).
+5. Click any wallpaper to open its page. Choose Desktop, Screen Saver or
+   Lock Screen, the displays and the sound, then press the Set button.
+6. The Screen Saver module is installed and configured automatically on apply.
+7. In Settings, turn on Launch at Login if the Desktop video should start
+   automatically after you log in.
+
+LOCK SCREEN VIDEO
+
+On macOS 26 the Lock Screen uses the native Wallpaper Studio wallpaper
+extension and stays independent of the Desktop. On macOS 15 Lock Screen video is
+not available; Desktop, Library, YouTube import and Screen Saver keep working.
+
+YOUTUBE IMPORT
+
+Use this feature only for content whose download is authorized by YouTube or
+for which you hold the necessary written permission.
+
+ABOUT UNNOTARIZED BUILDS
+
+If the DMG is not notarized with a Developer ID, macOS may show a Gatekeeper
+warning. For a test build received directly from the developer, move the app to
+Applications, then right-click it → Open and confirm once. On first launch the
+app registers the Wallpaper Studio extension automatically; don't select it in
+System Settings before opening the app from Applications.
+
+Distribution to other people requires a build signed with Developer ID
+Application and notarized. An Apple Development certificate only allows running
+the app as a development build and can make WallpaperAgent reject the extension
+with the message "This wallpaper can't be opened".

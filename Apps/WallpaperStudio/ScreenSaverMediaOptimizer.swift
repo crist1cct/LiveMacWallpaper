@@ -9,9 +9,9 @@ enum ScreenSaverOptimizationError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingVideoTrack:
-            "Videoclipul nu conține o pistă video validă pentru Screen Saver."
+            "The video has no valid video track for the Screen Saver."
         case .exportUnavailable:
-            "Nu a putut fi creată copia optimizată pentru Screen Saver."
+            "The optimized Screen Saver copy couldn't be created."
         }
     }
 }

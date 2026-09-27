@@ -435,17 +435,17 @@ enum SystemIntegrationError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .rendererMissing:
-            "Componenta de pornire automată lipsește din acest build. Folosește aplicația din pachetul DMG."
+            "The launch-at-login component is missing from this build. Use the app from the DMG."
         case .screenSaverMissing:
-            "Modulul Screen Saver lipsește din acest build. Folosește aplicația din pachetul DMG."
+            "The Screen Saver module is missing from this build. Use the app from the DMG."
         case .screenSaverEngineMissing:
-            "Motorul Screen Saver al macOS nu a putut fi pornit."
+            "The macOS Screen Saver engine couldn't be started."
         case .screenSaverVerificationFailed:
-            "Selecția ecranelor pentru Screen Saver nu a putut fi confirmată."
+            "The Screen Saver display selection couldn't be confirmed."
         case .lockScreenPermissionRequired:
-            "Pentru blocarea nativă, permite Wallpaper Studio în Configurări sistem → Confidențialitate și securitate → Accesibilitate, apoi apasă din nou „Blochează acum”."
+            "To lock natively, allow Wallpaper Studio in System Settings → Privacy & Security → Accessibility, then choose Lock again."
         case .lockScreenRequestFailed:
-            "macOS nu a acceptat comanda de blocare."
+            "macOS rejected the lock command."
         }
     }
 }

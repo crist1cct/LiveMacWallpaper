@@ -25,13 +25,13 @@ dmg_background="$project_root/Distribution/dmg-background.png"
 
 for command_name in curl xcodegen xcodebuild codesign hdiutil lipo shasum osascript; do
     command -v "$command_name" >/dev/null || {
-        echo "Lipsește instrumentul: $command_name" >&2
+        echo "Missing tool: $command_name" >&2
         exit 1
     }
 done
 
 [[ -f "$dmg_background" ]] || {
-    echo "Lipsește fundalul vizual al DMG-ului: $dmg_background" >&2
+    echo "Missing DMG background image: $dmg_background" >&2
     exit 1
 }
 
@@ -52,7 +52,7 @@ lipo "$ffmpeg_helper" -verify_arch arm64 x86_64
 
 actual_helper_hash="$(shasum -a 256 "$helper" | awk '{print $1}')"
 if [[ "$actual_helper_hash" != "$expected_helper_hash" ]]; then
-    echo "Checksum invalid pentru yt-dlp_macos." >&2
+    echo "Checksum mismatch for yt-dlp_macos." >&2
     exit 1
 fi
 
@@ -71,7 +71,7 @@ xcodebuild \
 
 for product in "$built_application" "$built_renderer" "$built_screen_saver" "$built_login_installer" "$built_wallpaper_extension"; do
     [[ -e "$product" ]] || {
-        echo "Build incomplet: lipsește $product" >&2
+        echo "Incomplete build: missing $product" >&2
         exit 1
     }
 done
@@ -97,7 +97,7 @@ curl -fL --retry 3 \
     -o "$ffmpeg_source"
 actual_ffmpeg_source_hash="$(shasum -a 256 "$ffmpeg_source" | awk '{print $1}')"
 [[ "$actual_ffmpeg_source_hash" == "$ffmpeg_source_hash" ]] || {
-    echo "Checksum invalid pentru sursa FFmpeg." >&2
+    echo "Checksum mismatch for the FFmpeg source." >&2
     exit 1
 }
 ditto --norsrc "$ffmpeg_source" \
@@ -181,7 +181,7 @@ on run argv
 end run
 APPLESCRIPT
 then
-    echo "Avertisment: Finder nu a putut pregăti layoutul sursă al DMG-ului."
+    echo "Warning: Finder could not prepare the DMG source layout."
 fi
 
 dmg_path="$output_directory/Wallpaper-Studio-$version.dmg"
@@ -198,7 +198,7 @@ hdiutil create \
 device=""
 if device="$(hdiutil attach -nobrowse -readwrite "$read_write_dmg" 2>/dev/null | awk '/Apple_HFS/ {print $1; exit}')"; then
     if [[ -z "$device" ]]; then
-        echo "Avertisment: imaginea temporară nu a putut fi montată; continui fără poziționarea Finder."
+        echo "Warning: the temporary image could not be mounted; continuing without Finder positioning."
     fi
 fi
 if [[ -n "$device" ]]; then
@@ -216,7 +216,7 @@ tell application "Finder"
 end tell
 APPLESCRIPT
     then
-        echo "Avertisment: Finder nu a putut salva layout-ul vizual al DMG-ului; continui cu fundalul inclus."
+        echo "Warning: Finder could not save the DMG window layout; continuing with the bundled background."
     fi
     hdiutil detach "$device" >/dev/null
 fi
@@ -232,7 +232,7 @@ fi
 
 if [[ -n "$notary_profile" ]]; then
     if [[ "$sign_identity" == "-" ]]; then
-        echo "Notarizarea necesită SIGN_IDENTITY=Developer ID Application…" >&2
+        echo "Notarization requires SIGN_IDENTITY=Developer ID Application…" >&2
         exit 1
     fi
     xcrun notarytool submit "$dmg_path" --keychain-profile "$notary_profile" --wait
@@ -242,4 +242,4 @@ fi
 
 checksum="$(shasum -a 256 "$dmg_path" | awk '{print $1}')"
 printf '%s  %s\n' "$checksum" "$(basename "$dmg_path")" > "$dmg_path.sha256"
-echo "Pachet creat: $dmg_path"
+echo "Package created: $dmg_path"

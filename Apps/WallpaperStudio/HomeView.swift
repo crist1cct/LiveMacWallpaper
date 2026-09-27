@@ -1,7 +1,7 @@
 import SwiftUI
 import WallpaperCore
 
-/// "Acasă" — the Apple TV "Watch Now" of Wallpaper Studio: one cinematic hero,
+/// Home: one full-width hero,
 /// what is live on each surface right now, then shelves.
 struct HomeView: View {
     @EnvironmentObject private var model: AppModel
@@ -19,7 +19,7 @@ struct HomeView: View {
 
                     let favorites = model.mediaItems.filter(\.isFavorite)
                     if !favorites.isEmpty {
-                        PosterShelf(title: "Favorite", items: favorites) {
+                        PosterShelf(title: "Favorites", items: favorites) {
                             model.libraryFilter = .favorites
                             withAnimation(TV.pageSpring) { model.selectedSection = .library }
                         }
@@ -27,7 +27,7 @@ struct HomeView: View {
 
                     let videos = model.recentItems.filter { $0.kind == .video }
                     if !videos.isEmpty {
-                        PosterShelf(title: "Wallpapere animate", subtitle: "\(videos.count)", items: videos) {
+                        PosterShelf(title: "Motion Wallpapers", subtitle: "\(videos.count)", items: videos) {
                             model.libraryFilter = .videos
                             withAnimation(TV.pageSpring) { model.selectedSection = .library }
                         }
@@ -35,7 +35,7 @@ struct HomeView: View {
 
                     let images = model.recentItems.filter { $0.kind == .image }
                     if !images.isEmpty {
-                        PosterShelf(title: "Imagini", subtitle: "\(images.count)", items: images, cardWidth: 250) {
+                        PosterShelf(title: "Images", subtitle: "\(images.count)", items: images, cardWidth: 250) {
                             model.libraryFilter = .images
                             withAnimation(TV.pageSpring) { model.selectedSection = .library }
                         }
@@ -89,7 +89,7 @@ private struct HomeHero: View {
 
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text(isOnDesktop ? "ACUM PE DESKTOP" : "RECOMANDAT PENTRU TINE")
+                    Text(isOnDesktop ? "NOW ON DESKTOP" : "FEATURED")
                         .font(.system(size: 12, weight: .heavy))
                         .tracking(2)
                         .foregroundStyle(TV.secondaryText)
@@ -113,7 +113,7 @@ private struct HomeHero: View {
                             Button {
                                 withAnimation(TV.pageSpring) { model.openDetail(item, destination: .desktop) }
                             } label: {
-                                Label("Configurează", systemImage: "slider.horizontal.3")
+                                Label("Configure", systemImage: "slider.horizontal.3")
                             }
                             .buttonStyle(TVPrimaryButtonStyle())
                         } else {
@@ -121,7 +121,7 @@ private struct HomeHero: View {
                                 model.configure(item, for: .desktop)
                                 Task { await model.applyFromLibrary(.desktop) }
                             } label: {
-                                Label("Setează pe Desktop", systemImage: "play.fill")
+                                Label("Set on Desktop", systemImage: "play.fill")
                             }
                             .buttonStyle(TVPrimaryButtonStyle())
                             .disabled(model.isApplying)
@@ -129,7 +129,7 @@ private struct HomeHero: View {
                             Button {
                                 withAnimation(TV.pageSpring) { model.openDetail(item) }
                             } label: {
-                                Text("Mai multe")
+                                Text("More")
                             }
                             .buttonStyle(TVGlassButtonStyle())
                         }
@@ -138,7 +138,7 @@ private struct HomeHero: View {
                             Image(systemName: item.isFavorite ? "heart.fill" : "heart")
                         }
                         .buttonStyle(TVGlassButtonStyle(circle: true))
-                        .help(item.isFavorite ? "Elimină din Favorite" : "Adaugă la Favorite")
+                        .help(item.isFavorite ? "Remove from Favorites" : "Add to Favorites")
                     }
                     .padding(.top, 6)
                 }
@@ -152,7 +152,7 @@ private struct HomeHero: View {
                             .contentTransition(.symbolEffect(.replace))
                     }
                     .buttonStyle(TVGlassButtonStyle(circle: true, height: 40))
-                    .help(isMuted ? "Pornește sunetul previzualizării" : "Oprește sunetul")
+                    .help(isMuted ? "Unmute preview" : "Mute")
                 }
             }
             .padding(.horizontal, TV.pageInset)
@@ -170,7 +170,7 @@ private struct NowShowingRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            TVShelfHeader(title: "Acum pe ecranele tale")
+            TVShelfHeader(title: "On Your Screens")
             HStack(spacing: 24) {
                 ForEach(WallpaperDestination.allCases, id: \.self) { destination in
                     SurfaceTile(destination: destination, item: model.activeMedia(for: destination))
@@ -211,7 +211,7 @@ private struct SurfaceTile: View {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(destination.title)
                             .font(.system(size: 14, weight: .bold))
-                        Text(item?.title ?? "Nesetat · alege un wallpaper")
+                        Text(item?.title ?? "Not set · choose a wallpaper")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(TV.secondaryText)
                             .lineLimit(1)
@@ -230,7 +230,7 @@ private struct SurfaceTile: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
-        .accessibilityLabel("\(destination.title): \(item?.title ?? "nesetat")")
+        .accessibilityLabel("\(destination.title): \(item?.title ?? "not set")")
     }
 
     private func open() {
@@ -249,10 +249,10 @@ struct AddContentRow: View {
 
     var body: some View {
         HStack(spacing: 20) {
-            AddTile(title: "Adaugă din Mac", subtitle: "Imagini și videoclipuri · sau trage-le aici", symbol: "plus") {
+            AddTile(title: "Add from Mac", subtitle: "Images and videos · or drop them here", symbol: "plus") {
                 model.chooseFiles()
             }
-            AddTile(title: "Importă din YouTube", subtitle: "La calitatea maximă disponibilă", symbol: "play.rectangle.fill") {
+            AddTile(title: "Import from YouTube", subtitle: "At the highest available quality", symbol: "play.rectangle.fill") {
                 model.isYouTubeSheetPresented = true
             }
         }

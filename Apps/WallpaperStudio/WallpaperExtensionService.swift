@@ -18,25 +18,25 @@ enum WallpaperExtensionError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .requiresTahoe:
-            "Videoclipul pe Lock Screen necesită macOS 26 Tahoe sau o versiune mai nouă."
+            "Lock Screen video requires macOS 26 Tahoe or later."
         case .extensionMissing:
-            "Extensia Wallpaper Studio pentru macOS 26 lipsește din aplicație. Reinstalează aplicația din DMG."
+            "The Wallpaper Studio extension for macOS 26 is missing from the app. Reinstall the app from the DMG."
         case .extensionRegistrationFailed:
-            "macOS nu a acceptat extensia Wallpaper Studio. Instalează aplicația semnată în dosarul Applications și deschide-o din acel dosar."
+            "macOS didn't accept the Wallpaper Studio extension. Install the signed app in Applications and open it from there."
         case .extensionNotRegistered:
-            "Extensia Wallpaper Studio nu este înregistrată în macOS. Închide aplicația, mut-o în Applications și deschide-o din nou."
+            "The Wallpaper Studio extension isn't registered with macOS. Quit the app, move it to Applications and open it again."
         case .videoRequired:
-            "Pentru Lock Screen trebuie selectat un videoclip."
+            "A video must be selected for the Lock Screen."
         case .wallpaperStoreMissing:
-            "Baza de date Wallpaper din macOS nu a fost găsită. Deschide o dată Setări sistem → Wallpaper."
+            "The macOS wallpaper database wasn't found. Open System Settings → Wallpaper once."
         case .invalidWallpaperStore:
-            "Configurația Wallpaper a sistemului nu poate fi citită în siguranță."
+            "The system wallpaper configuration can't be read safely."
         case .deploymentFailed:
-            "Videoclipul nu a putut fi pregătit pentru extensia Lock Screen."
+            "The video couldn't be prepared for the Lock Screen extension."
         case .verificationFailed:
-            "macOS nu a păstrat selecția Wallpaper Studio pentru Lock Screen."
+            "macOS didn't keep the Wallpaper Studio Lock Screen selection."
         case .noBackup:
-            "Nu există o configurație Apple salvată pentru restaurare."
+            "There's no saved Apple configuration to restore."
         }
     }
 }

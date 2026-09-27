@@ -32,9 +32,9 @@ public enum DisplayTargetError: Error, Equatable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .noDisplaysConnected:
-            "Nu a fost detectat niciun ecran conectat."
+            "No connected display was detected."
         case .displayUnavailable:
-            "Ecranul selectat nu mai este conectat. Reîncarcă lista și alege un ecran disponibil."
+            "The selected display is no longer connected. Refresh the list and choose an available display."
         }
     }
 }

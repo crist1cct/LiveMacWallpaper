@@ -17,7 +17,7 @@ public enum DesktopImageApplicationError: Error, Equatable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .verificationFailed:
-            "macOS nu a confirmat imaginea pe unul dintre ecranele selectate."
+            "macOS didn't confirm the image on one of the selected displays."
         }
     }
 }

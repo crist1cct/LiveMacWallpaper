@@ -37,10 +37,10 @@ struct YouTubeImportView: View {
                         .frame(width: 46, height: 46)
                         .tvGlass(in: RoundedRectangle(cornerRadius: 13, style: .continuous))
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Importă din YouTube")
+                        Text("Import from YouTube")
                             .font(.system(size: 22, weight: .bold))
                             .foregroundStyle(.white)
-                        Text("Lipește linkul unui clip. Îl pregătim automat la calitatea maximă.")
+                        Text("Paste a video link. It's prepared automatically at the highest quality.")
                             .font(.system(size: 13))
                             .foregroundStyle(TV.secondaryText)
                     }
@@ -51,18 +51,18 @@ struct YouTubeImportView: View {
                     .buttonStyle(TVGlassButtonStyle(circle: true, height: 34))
                     .keyboardShortcut(.cancelAction)
                     .disabled(isImporting)
-                    .help("Închide (Esc)")
+                    .help("Close (Esc)")
                 }
 
                 switch model.youtubeHelperStatus {
                 case .unavailable:
                     unavailable(
-                        title: "Import indisponibil",
+                        title: "Import Unavailable",
                         symbol: "shippingbox",
-                        message: "Importul YouTube nu este inclus în această versiune a aplicației."
+                        message: "YouTube import isn't included in this build of the app."
                     )
                 case let .failed(reason):
-                    unavailable(title: "Componenta nu poate porni", symbol: "exclamationmark.triangle", message: reason)
+                    unavailable(title: "The Component Can't Start", symbol: "exclamationmark.triangle", message: reason)
                 case .ready:
                     importForm
                 }
@@ -111,7 +111,7 @@ struct YouTubeImportView: View {
                     if isChecking {
                         ProgressView().controlSize(.small).tint(.white)
                     } else {
-                        Text("Verifică")
+                        Text("Check")
                     }
                 }
                 .buttonStyle(TVGlassButtonStyle(height: 44))
@@ -150,7 +150,7 @@ struct YouTubeImportView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
 
                 Toggle(isOn: $hasConfirmedRights) {
-                    Text("Confirm că descărcarea este autorizată de funcționalitatea YouTube sau că am permisiunile scrise necesare de la YouTube și deținătorii drepturilor.")
+                    Text("I confirm that this download is authorized by YouTube functionality or that I have the necessary written permission from YouTube and the rights holders.")
                         .font(.system(size: 12.5))
                         .foregroundStyle(.white.opacity(0.85))
                         .fixedSize(horizontal: false, vertical: true)
@@ -158,17 +158,17 @@ struct YouTubeImportView: View {
                 .toggleStyle(.checkbox)
 
                 HStack(spacing: 4) {
-                    Text("Un singur clip, fără playlisturi, cookies, login sau DRM.")
-                    Link("Termenii YouTube", destination: URL(string: "https://www.youtube.com/static?template=terms")!)
+                    Text("Single videos only: no playlists, cookies, sign-in or DRM.")
+                    Link("YouTube Terms", destination: URL(string: "https://www.youtube.com/static?template=terms")!)
                         .foregroundStyle(.white)
                 }
                 .font(.system(size: 11.5))
                 .foregroundStyle(TV.tertiaryText)
             } else if !isChecking {
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("Funcționează cu clipuri, Shorts și linkuri youtu.be.", systemImage: "checkmark")
-                    Label("Se descarcă cea mai mare rezoluție disponibilă.", systemImage: "checkmark")
-                    Label("Formatele incompatibile se convertesc automat.", systemImage: "checkmark")
+                    Label("Works with videos, Shorts and youtu.be links.", systemImage: "checkmark")
+                    Label("Downloads the highest available resolution.", systemImage: "checkmark")
+                    Label("Incompatible formats are converted automatically.", systemImage: "checkmark")
                 }
                 .font(.system(size: 13))
                 .foregroundStyle(TV.secondaryText)
@@ -195,7 +195,7 @@ struct YouTubeImportView: View {
                 Button {
                     Task { await importVideo() }
                 } label: {
-                    Label("Adaugă în Bibliotecă", systemImage: "arrow.down")
+                    Label("Add to Library", systemImage: "arrow.down")
                 }
                 .buttonStyle(TVPrimaryButtonStyle())
                 .disabled(metadata == nil || !hasConfirmedRights || isImporting)
@@ -217,13 +217,13 @@ struct YouTubeImportView: View {
 
     private func importVideo() async {
         isImporting = true
-        phase = "Se pregătește"
+        phase = "Preparing"
         errorMessage = nil
         do {
             try await model.importYouTube(urlText) { newPhase in
                 phase = newPhase
             }
-            model.successMessage = "Clipul a fost adăugat în Bibliotecă."
+            model.successMessage = "Video added to the Library."
             dismiss()
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription

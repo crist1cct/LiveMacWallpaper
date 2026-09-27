@@ -32,11 +32,11 @@ private enum HelperError: Error, LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .administratorRequired: "Sunt necesare drepturi de administrator."
-        case .invalidArguments: "Comanda Lock Screen este incompletă."
-        case .invalidUserID: "Sesiunea utilizatorului nu a putut fi identificată."
-        case .invalidPoster: "Imaginea pentru Lock Screen nu este validă."
-        case .userNotFound: "Identificatorul contului macOS nu a putut fi citit."
+        case .administratorRequired: "Administrator privileges are required."
+        case .invalidArguments: "The Lock Screen command is incomplete."
+        case .invalidUserID: "The user session couldn't be identified."
+        case .invalidPoster: "The Lock Screen image isn't valid."
+        case .userNotFound: "The macOS account identifier couldn't be read."
         }
     }
 }

@@ -24,23 +24,23 @@ public enum MediaProcessingError: Error, Equatable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case let .unsupportedFileType(extensionName):
-            "Tipul de fișier media nu este acceptat: \(extensionName)."
+            "Unsupported media file type: \(extensionName)."
         case .unreadableMedia:
-            "Fișierul media nu poate fi citit."
+            "The media file can't be read."
         case .missingVideoTrack:
-            "Fișierul selectat nu conține o pistă video."
+            "The selected file has no video track."
         case .exportPresetUnavailable:
-            "Acest Mac nu poate pregăti videoclipul la calitatea solicitată."
+            "This Mac can't prepare the video at the requested quality."
         case let .exportFailed(message):
-            "Pregătirea videoclipului a eșuat: \(message)."
+            "Video preparation failed: \(message)."
         case .fallbackTranscoderUnavailable:
-            "Formatul video necesită componenta de compatibilitate FFmpeg, dar aceasta lipsește din aplicație. Reinstalează aplicația din DMG."
+            "This video format needs the bundled FFmpeg component, which is missing. Reinstall the app from the DMG."
         case .fallbackTranscodeFailed:
-            "Videoclipul nu a putut fi convertit într-un format compatibil cu acest Mac."
+            "The video couldn't be converted to a format this Mac supports."
         case .previewGenerationFailed:
-            "Previzualizarea nu a putut fi generată."
+            "The preview couldn't be generated."
         case .invalidImage:
-            "Imaginea selectată este invalidă sau deteriorată."
+            "The selected image is invalid or damaged."
         }
     }
 }
