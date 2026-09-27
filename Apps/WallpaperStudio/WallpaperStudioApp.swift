@@ -8,10 +8,11 @@ struct WallpaperStudioApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(model)
-                .frame(minWidth: 1040, minHeight: 680)
+                .frame(minWidth: 1080, minHeight: 700)
                 .task { await model.start() }
         }
-        .defaultSize(width: 1240, height: 820)
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 1360, height: 860)
         .commands {
             CommandGroup(after: .newItem) {
                 Button("Importă fișiere…") {
@@ -23,6 +24,15 @@ struct WallpaperStudioApp: App {
                     model.isYouTubeSheetPresented = true
                 }
                 .keyboardShortcut("u", modifiers: [.command, .shift])
+            }
+            CommandMenu("Vizualizare") {
+                ForEach(Array(AppSection.allCases.enumerated()), id: \.element) { index, section in
+                    Button(section.title) {
+                        model.closeDetail()
+                        model.selectedSection = section
+                    }
+                    .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .command)
+                }
             }
             CommandMenu("Wallpaper") {
                 Button("Blochează cu Wallpaper Studio") {
@@ -49,9 +59,9 @@ struct WallpaperStudioApp: App {
         }
 
         Settings {
-            SettingsView()
+            SettingsView(isStandaloneWindow: true)
                 .environmentObject(model)
-                .frame(width: 840, height: 650)
+                .frame(width: 820, height: 680)
         }
     }
 }

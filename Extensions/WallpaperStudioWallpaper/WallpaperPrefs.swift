@@ -291,8 +291,8 @@ final class WallpaperPrefs: @unchecked Sendable {
         // down immediately on unlock/sleep.
         let audioReference = state.audioReference()
         let videoURL = audioReference.videoID.flatMap(VideoLibrary.shared.videoURL(for:))
-        let duration = audioReference.videoID
-            .flatMap { VideoLibrary.shared.entry(for: $0)?.duration } ?? 0
+        // The clip length comes from the player item itself; the library's probed
+        // duration can be 0 (not probed yet) or differ from the real loop length.
         LockScreenAudioController.shared.update(
             shouldPlay: lockScreenAudioEnabled
                 && isLocked
@@ -301,7 +301,6 @@ final class WallpaperPrefs: @unchecked Sendable {
                 && !activityState.lowercased().contains("suspend"),
             volume: lockScreenAudioVolume,
             sourceURL: videoURL,
-            duration: duration,
             renderer: audioReference.renderer
         )
     }

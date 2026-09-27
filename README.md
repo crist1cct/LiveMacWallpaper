@@ -21,6 +21,22 @@ Funcții principale:
 - copie de redare optimizată automat pentru Screen Saver, până la 4K/60 fps,
   fără modificarea fișierului original din bibliotecă.
 
+## Versiunea 1.7 — redesign Apple TV
+
+- interfață refăcută de la zero, în stilul aplicației Apple TV: fereastră
+  întunecată fără bară de titlu, tab bar plutitor (Acasă · Bibliotecă · Setări),
+  hero cinematic cu previzualizare video, rafturi orizontale și carduri cu efect
+  de „focus” (ridicare, înclinare după cursor, reflexie);
+- `Acasă` arată dintr-o privire ce rulează acum pe Desktop, în Screen Saver și pe
+  Lock Screen; un clic pe oricare deschide pagina wallpaperului;
+- fiecare wallpaper are o pagină proprie pe tot ecranul: alegi destinația,
+  ecranul și sunetul, apoi un singur buton `Setează`; Esc închide, Enter aplică;
+- căutare în bara de sus (⌘F), navigare cu ⌘1/⌘2/⌘3, Liquid Glass pe macOS 26;
+- sunetul pe Lock Screen nu mai vine „în valuri”: audio urmează ceasul exact al
+  buclei video, așteaptă (mut) cât imaginea accelerează după blocare și corectează
+  deriva prin ajustări fine de viteză (±3 %, fără schimbarea tonului) în loc de
+  salturi repetate; resincronizarea completă se face rar și în spatele unui fade.
+
 Versiunea 1.1.4 folosește o configurație versionată care păstrează UUID-ul stabil al
 monitorului ales. Aplicarea pe Desktop este confirmată de renderer pentru lista
 exactă de ecrane, iar pachetul Screen Saver își verifică configurația după scriere.

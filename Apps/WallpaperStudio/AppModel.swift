@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 import WallpaperCore
 
 enum AppSection: String, CaseIterable, Identifiable {
+    case home
     case library
     case settings
 
@@ -13,6 +14,7 @@ enum AppSection: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
+        case .home: "Acasă"
         case .library: "Bibliotecă"
         case .settings: "Setări"
         }
@@ -20,7 +22,8 @@ enum AppSection: String, CaseIterable, Identifiable {
 
     var symbol: String {
         switch self {
-        case .library: "photo.on.rectangle.angled"
+        case .home: "play.tv"
+        case .library: "square.grid.2x2"
         case .settings: "gearshape"
         }
     }
@@ -60,7 +63,9 @@ struct ImportJob: Identifiable {
 
 @MainActor
 final class AppModel: ObservableObject {
-    @Published var selectedSection: AppSection? = .library
+    @Published var selectedSection: AppSection = .home
+    /// Item whose full-screen detail page is open (Apple TV style "product page").
+    @Published var detailMediaID: UUID?
     @Published var libraryFilter: LibraryFilter = .all
     @Published var searchText = ""
     @Published var mediaItems: [MediaItem] = []
@@ -126,6 +131,56 @@ final class AppModel: ObservableObject {
     var selectedMediaItem: MediaItem? {
         guard let selectedMediaID else { return nil }
         return mediaItems.first { $0.id == selectedMediaID }
+    }
+
+    var detailMediaItem: MediaItem? {
+        guard let detailMediaID else { return nil }
+        return mediaItems.first { $0.id == detailMediaID }
+    }
+
+    /// Media currently applied (active profile) on a destination, following
+    /// "follow" links so Lock Screen → Screen Saver → Desktop resolve to real items.
+    func activeMedia(for destination: WallpaperDestination) -> MediaItem? {
+        guard let profile = activeProfile else { return nil }
+        var current = destination
+        for _ in 0 ..< 3 {
+            switch profile[current].selection {
+            case let .media(id):
+                return mediaItems.first { $0.id == id }
+            case let .follow(next):
+                current = next
+            case .systemDefault, .off:
+                return nil
+            }
+        }
+        return nil
+    }
+
+    /// Destinations on which `item` is currently live.
+    func activeDestinations(of item: MediaItem) -> [WallpaperDestination] {
+        WallpaperDestination.allCases.filter { activeMedia(for: $0)?.id == item.id }
+    }
+
+    /// The hero on Home: what is on the desktop now, else a favorite, else the newest.
+    var featuredItem: MediaItem? {
+        activeMedia(for: .desktop)
+            ?? mediaItems.first(where: \.isFavorite)
+            ?? mediaItems.max(by: { $0.importedAt < $1.importedAt })
+    }
+
+    var recentItems: [MediaItem] {
+        mediaItems.sorted { $0.importedAt > $1.importedAt }
+    }
+
+    /// Open the detail page for `item`, preparing the draft for `destination`.
+    func openDetail(_ item: MediaItem, destination: WallpaperDestination? = nil) {
+        let target = destination ?? activeDestinations(of: item).first ?? .desktop
+        configure(item, for: target)
+        detailMediaID = item.id
+    }
+
+    func closeDetail() {
+        detailMediaID = nil
     }
 
     var backendLocationLabel: String {
@@ -281,6 +336,7 @@ final class AppModel: ObservableObject {
             do {
                 try await backend.removeMedia(id: item.id)
                 if selectedMediaID == item.id { selectedMediaID = nil }
+                if detailMediaID == item.id { detailMediaID = nil }
                 await refreshLibraryOnly()
             } catch {
                 show(error)

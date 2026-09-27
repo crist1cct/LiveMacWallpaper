@@ -15,148 +15,192 @@ struct YouTubeImportView: View {
 
     var body: some View {
         ZStack {
-            StudioPageBackground()
-            VStack(alignment: .leading, spacing: 22) {
+            TV.canvas.ignoresSafeArea()
+            if let thumbnail = metadata?.thumbnailURL {
+                // The clip's own artwork, blurred, as the sheet's backdrop.
+                AsyncImage(url: thumbnail) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Color.clear
+                }
+                .blur(radius: 60)
+                .opacity(0.45)
+                .ignoresSafeArea()
+                .transition(.opacity)
+            }
+
+            VStack(alignment: .leading, spacing: 24) {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: "play.rectangle.fill")
-                        .font(.system(size: 22, weight: .semibold))
-                        .frame(width: 44, height: 44)
+                        .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(.white)
-                        .background(.black, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .frame(width: 46, height: 46)
+                        .tvGlass(in: RoundedRectangle(cornerRadius: 13, style: .continuous))
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Importă din YouTube")
-                            .font(.title2.bold())
-                        Text("Calitatea maximă disponibilă, pregătită automat pentru redare.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundStyle(.white)
+                        Text("Lipește linkul unui clip. Îl pregătim automat la calitatea maximă.")
+                            .font(.system(size: 13))
+                            .foregroundStyle(TV.secondaryText)
                     }
                     Spacer()
-                    Button("Închide") { dismiss() }
-                        .disabled(isImporting)
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .buttonStyle(TVGlassButtonStyle(circle: true, height: 34))
+                    .keyboardShortcut(.cancelAction)
+                    .disabled(isImporting)
+                    .help("Închide (Esc)")
                 }
 
-                StudioPanel(padding: 20) {
-                    switch model.youtubeHelperStatus {
-                    case .unavailable:
-                        ContentUnavailableView(
-                            "Import indisponibil",
-                            systemImage: "shippingbox",
-                            description: Text("Componenta YouTube nu este inclusă în acest build.")
-                        )
-                    case let .failed(reason):
-                        ContentUnavailableView(
-                            "Componenta nu poate porni",
-                            systemImage: "exclamationmark.triangle",
-                            description: Text(reason)
-                        )
-                    case .ready:
-                        importForm
-                    }
+                switch model.youtubeHelperStatus {
+                case .unavailable:
+                    unavailable(
+                        title: "Import indisponibil",
+                        symbol: "shippingbox",
+                        message: "Importul YouTube nu este inclus în această versiune a aplicației."
+                    )
+                case let .failed(reason):
+                    unavailable(title: "Componenta nu poate porni", symbol: "exclamationmark.triangle", message: reason)
+                case .ready:
+                    importForm
                 }
             }
-            .padding(26)
+            .padding(30)
         }
-        .frame(width: 640, height: 560)
+        .frame(width: 660, height: 580)
+        .preferredColorScheme(.dark)
+        .animation(TV.pageSpring, value: metadata?.title)
+    }
+
+    private func unavailable(title: String, symbol: String, message: String) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: symbol)
+                .font(.system(size: 36, weight: .light))
+                .foregroundStyle(TV.tertiaryText)
+            Text(title).font(.system(size: 18, weight: .semibold)).foregroundStyle(.white)
+            Text(message).font(.system(size: 13)).foregroundStyle(TV.secondaryText).multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var importForm: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                TextField("https://www.youtube.com/watch?v=…", text: $urlText)
-                    .textFieldStyle(.roundedBorder)
-                    .onChange(of: urlText) {
-                        metadata = nil
-                        hasConfirmedRights = false
-                        errorMessage = nil
-                    }
-                    .onSubmit { Task { await inspect() } }
-                Button("Verifică linkul") {
-                    Task { await inspect() }
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: "link")
+                        .foregroundStyle(TV.secondaryText)
+                    TextField("https://www.youtube.com/watch?v=…", text: $urlText)
+                        .textFieldStyle(.plain)
+                        .foregroundStyle(.white)
+                        .onChange(of: urlText) {
+                            metadata = nil
+                            hasConfirmedRights = false
+                            errorMessage = nil
+                        }
+                        .onSubmit { Task { await inspect() } }
                 }
+                .padding(.horizontal, 16)
+                .frame(height: 44)
+                .tvGlassCapsule()
+
+                Button {
+                    Task { await inspect() }
+                } label: {
+                    if isChecking {
+                        ProgressView().controlSize(.small).tint(.white)
+                    } else {
+                        Text("Verifică")
+                    }
+                }
+                .buttonStyle(TVGlassButtonStyle(height: 44))
                 .disabled(urlText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isChecking)
             }
 
-            if isChecking {
-                HStack {
-                    ProgressView().controlSize(.small)
-                    Text("Se citește informația video…")
-                        .foregroundStyle(.secondary)
-                }
-            }
-
             if let metadata {
-                HStack(alignment: .top, spacing: 14) {
+                HStack(alignment: .top, spacing: 16) {
                     AsyncImage(url: metadata.thumbnailURL) { image in
                         image.resizable().scaledToFill()
                     } placeholder: {
-                        Rectangle().fill(.quaternary)
+                        Rectangle().fill(Color.white.opacity(0.08))
                     }
-                    .frame(width: 170, height: 96)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .frame(width: 208, height: 117)
+                    .clipShape(RoundedRectangle(cornerRadius: TV.cardRadius, style: .continuous))
+                    .shadow(color: .black.opacity(0.4), radius: 14, y: 8)
 
-                    VStack(alignment: .leading, spacing: 5) {
+                    VStack(alignment: .leading, spacing: 6) {
                         Text(metadata.title)
-                            .font(.headline)
-                            .lineLimit(2)
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundStyle(.white)
+                            .lineLimit(3)
                         if let channel = metadata.channel {
-                            Text(channel).foregroundStyle(.secondary)
+                            Text(channel).font(.system(size: 13)).foregroundStyle(TV.secondaryText)
                         }
-                        if let duration = metadata.duration {
-                            Text(Self.durationLabel(duration))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        HStack(spacing: 6) {
+                            if let duration = metadata.duration {
+                                Text(TV.timeLabel(duration))
+                                    .font(.system(size: 12, weight: .medium).monospacedDigit())
+                                    .foregroundStyle(TV.secondaryText)
+                            }
+                            TVBadge(text: "MAX")
                         }
                     }
                 }
+                .transition(.opacity.combined(with: .move(edge: .top)))
 
                 Toggle(isOn: $hasConfirmedRights) {
                     Text("Confirm că descărcarea este autorizată de funcționalitatea YouTube sau că am permisiunile scrise necesare de la YouTube și deținătorii drepturilor.")
-                        .font(.callout)
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                .toggleStyle(.checkbox)
 
                 HStack(spacing: 4) {
-                    Text("Se importă un singur clip, fără playlisturi, cookies, login sau DRM.")
+                    Text("Un singur clip, fără playlisturi, cookies, login sau DRM.")
                     Link("Termenii YouTube", destination: URL(string: "https://www.youtube.com/static?template=terms")!)
+                        .foregroundStyle(.white)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-                LabeledContent("Pregătire") {
-                    Text("Maxim disponibil · fără limită de rezoluție")
-                        .foregroundStyle(.secondary)
+                .font(.system(size: 11.5))
+                .foregroundStyle(TV.tertiaryText)
+            } else if !isChecking {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Funcționează cu clipuri, Shorts și linkuri youtu.be.", systemImage: "checkmark")
+                    Label("Se descarcă cea mai mare rezoluție disponibilă.", systemImage: "checkmark")
+                    Label("Formatele incompatibile se convertesc automat.", systemImage: "checkmark")
                 }
-                .font(.callout)
+                .font(.system(size: 13))
+                .foregroundStyle(TV.secondaryText)
+                .padding(.top, 4)
             }
 
             if let errorMessage {
                 Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                    .font(.callout)
-                    .foregroundStyle(.primary)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.yellow)
             }
 
-            Spacer()
+            Spacer(minLength: 0)
 
-            if isImporting {
-                HStack(spacing: 10) {
-                    ProgressView().controlSize(.small)
+            HStack(spacing: 12) {
+                if isImporting {
+                    ProgressView().controlSize(.small).tint(.white)
                     Text(phase)
-                    Spacer()
+                        .font(.system(size: 13))
+                        .foregroundStyle(TV.secondaryText)
+                        .lineLimit(1)
                 }
-            }
-
-            HStack {
                 Spacer()
-                Button("Anulează") { dismiss() }
-                    .disabled(isImporting)
-                Button("Importă") {
+                Button {
                     Task { await importVideo() }
+                } label: {
+                    Label("Adaugă în Bibliotecă", systemImage: "arrow.down")
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.primary)
+                .buttonStyle(TVPrimaryButtonStyle())
                 .disabled(metadata == nil || !hasConfirmedRights || isImporting)
             }
         }
-        .tint(.primary)
     }
 
     private func inspect() async {
@@ -187,9 +231,5 @@ struct YouTubeImportView: View {
         isImporting = false
     }
 
-    private static func durationLabel(_ seconds: TimeInterval) -> String {
-        let value = max(0, Int(seconds.rounded()))
-        return String(format: "%d:%02d", value / 60, value % 60)
-    }
 
 }
