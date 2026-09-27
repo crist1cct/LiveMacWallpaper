@@ -1,7 +1,7 @@
 import SwiftUI
 import WallpaperCore
 
-/// "Bibliotecă" — the whole collection as a poster grid. Filtering is a row of
+/// "Library" — the whole collection as a poster grid. Filtering is a row of
 /// capsules; search lives in the top bar; clicking any poster opens its page.
 struct LibraryView: View {
     @EnvironmentObject private var model: AppModel
@@ -59,18 +59,18 @@ struct LibraryView: View {
     private func header(count: Int) -> some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .firstTextBaseline, spacing: 14) {
-                Text("Bibliotecă")
+                Text("Library")
                     .font(.system(size: 40, weight: .bold))
                     .foregroundStyle(.white)
-                Text(count == 1 ? "1 wallpaper" : "\(count) wallpapere")
+                Text(count == 1 ? "1 wallpaper" : "\(count) wallpapers")
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(TV.tertiaryText)
                 Spacer()
                 Button { model.chooseFiles() } label: {
-                    Label("Adaugă", systemImage: "plus")
+                    Label("Add", systemImage: "plus")
                 }
                 .buttonStyle(TVGlassButtonStyle(height: 38))
-                .help("Importă imagini sau videoclipuri (⌘O)")
+                .help("Import images or videos (⌘O)")
             }
 
             HStack(spacing: 10) {
@@ -93,12 +93,12 @@ struct LibraryView: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 34, weight: .light))
                 .foregroundStyle(TV.tertiaryText)
-            Text("Niciun rezultat")
+            Text("No Results")
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(.white)
-            Text("Încearcă alt nume sau alt filtru.")
+            Text("Try a different name or filter.")
                 .foregroundStyle(TV.secondaryText)
-            Button("Arată tot") {
+            Button("Show All") {
                 model.searchText = ""
                 model.libraryFilter = .all
             }
@@ -153,10 +153,10 @@ struct EmptyLibraryView: View {
                 .frame(width: 112, height: 112)
                 .tvGlass(in: Circle())
             VStack(spacing: 8) {
-                Text("Bun venit în Wallpaper Studio")
+                Text("Welcome to Wallpaper Studio")
                     .font(.system(size: 30, weight: .bold))
                     .foregroundStyle(.white)
-                Text("Adaugă un videoclip sau o imagine și pune-l pe Desktop, în Screen Saver sau pe Lock Screen — cu un singur clic.")
+                Text("Add a video or an image and put it on your Desktop, Screen Saver or Lock Screen in one click.")
                     .font(.system(size: 15))
                     .foregroundStyle(TV.secondaryText)
                     .multilineTextAlignment(.center)
@@ -164,15 +164,15 @@ struct EmptyLibraryView: View {
             }
             HStack(spacing: 12) {
                 Button { model.chooseFiles() } label: {
-                    Label("Alege fișiere", systemImage: "plus")
+                    Label("Choose Files", systemImage: "plus")
                 }
                 .buttonStyle(TVPrimaryButtonStyle())
                 Button { model.isYouTubeSheetPresented = true } label: {
-                    Label("Din YouTube", systemImage: "play.rectangle.fill")
+                    Label("From YouTube", systemImage: "play.rectangle.fill")
                 }
                 .buttonStyle(TVGlassButtonStyle())
             }
-            Text("Poți și să tragi fișiere oriunde în fereastră. Originalele rămân neatinse.")
+            Text("You can also drop files anywhere in the window. Originals are never modified.")
                 .font(.system(size: 12))
                 .foregroundStyle(TV.tertiaryText)
         }

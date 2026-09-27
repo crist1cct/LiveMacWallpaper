@@ -4,10 +4,9 @@ import WallpaperCore
 
 // MARK: - Design tokens
 //
-// Wallpaper Studio's visual language follows the Apple TV app: a dark, full-bleed
-// canvas where the artwork is the interface, large confident type, frosted glass for
-// every control that floats over content, and a "focus" lift on whatever is under the
-// pointer instead of borders and selection rings.
+// Shared tokens: a dark, full-bleed canvas where the artwork is the interface,
+// large type, frosted glass for every control that floats over content, and a
+// hover "focus" lift instead of borders and selection rings.
 
 enum TV {
     static let canvas = Color(red: 0.035, green: 0.035, blue: 0.045)
@@ -56,7 +55,7 @@ extension View {
 
 // MARK: - Buttons
 
-/// The white pill used for the one primary action on a screen ("Aplică", "Setează").
+/// The white pill used for the one primary action on a screen.
 struct TVPrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
 
@@ -117,7 +116,7 @@ struct TVGlassButtonStyle: ButtonStyle {
     }
 }
 
-/// Plain text-like button that brightens on hover (tab bar, "Vezi tot").
+/// Plain text-like button that brightens on hover (tab bar, "See All").
 struct TVQuietButtonStyle: ButtonStyle {
     var isActive = false
 
@@ -143,7 +142,7 @@ struct TVQuietButtonStyle: ButtonStyle {
 
 // MARK: - Focus lift
 
-/// tvOS-style focus: the element under the pointer grows, casts a deeper shadow,
+/// Hover focus: the element under the pointer grows, casts a deeper shadow,
 /// tilts slightly toward the pointer and catches a specular highlight.
 struct TVFocusEffect: ViewModifier {
     var cornerRadius: CGFloat = TV.cardRadius
@@ -299,7 +298,7 @@ struct TVShelfHeader: View {
     }
 }
 
-/// Compact metadata badge, like "4K" or "HDR" on Apple TV.
+/// Compact metadata badge, e.g. "4K" or "HEVC".
 struct TVBadge: View {
     let text: String
     var filled = false
@@ -350,7 +349,7 @@ struct TVToast: View {
                     Image(systemName: "xmark").font(.system(size: 11, weight: .bold))
                 }
                 .buttonStyle(TVQuietButtonStyle())
-                .accessibilityLabel("Închide mesajul")
+                .accessibilityLabel("Dismiss")
             }
         }
         .padding(.horizontal, 18)
@@ -382,9 +381,9 @@ extension WallpaperDestination {
 
     var applyTitle: String {
         switch self {
-        case .desktop: "Setează pe Desktop"
-        case .screenSaver: "Setează ca Screen Saver"
-        case .lockScreen: "Setează pe Lock Screen"
+        case .desktop: "Set on Desktop"
+        case .screenSaver: "Set as Screen Saver"
+        case .lockScreen: "Set on Lock Screen"
         }
     }
 }
@@ -400,7 +399,7 @@ extension MediaItem {
         return values
     }
 
-    var kindLabel: String { kind == .video ? "Video" : "Imagine" }
+    var kindLabel: String { kind == .video ? "Video" : "Image" }
 
     var isFromYouTube: Bool {
         if case .youtube = origin { return true }

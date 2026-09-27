@@ -1,7 +1,7 @@
 import SwiftUI
 import WallpaperCore
 
-/// Settings in the tvOS manner: one centered column of large, plainly worded rows
+/// Settings: one centered column of large, plainly worded rows
 /// grouped on glass. Used both as a tab in the main window and in the Settings scene.
 struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
@@ -16,12 +16,12 @@ struct SettingsView: View {
             TV.canvas.ignoresSafeArea()
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 30) {
-                    Text("Setări")
+                    Text("Settings")
                         .font(.system(size: 40, weight: .bold))
                         .foregroundStyle(.white)
 
-                    SettingsGroup(title: "Redare") {
-                        SettingsRow(symbol: "power", title: "Pornește cu Mac-ul", detail: "Wallpaperul de pe Desktop rămâne activ după autentificare, chiar și cu aplicația închisă.") {
+                    SettingsGroup(title: "Playback") {
+                        SettingsRow(symbol: "power", title: "Launch at Login", detail: "Keeps the Desktop wallpaper running after login, even when the app is closed.") {
                             Toggle("", isOn: Binding(
                                 get: { model.isLoginItemEnabled },
                                 set: { model.setLoginItemEnabled($0) }
@@ -33,12 +33,12 @@ struct SettingsView: View {
                         SettingsDivider()
                         SettingsRow(
                             symbol: model.desktopEngine.isPaused ? "play.fill" : "pause.fill",
-                            title: "Redarea pe Desktop",
+                            title: "Desktop Playback",
                             detail: model.desktopEngine.isRunning
-                                ? (model.desktopEngine.isPaused ? "În pauză" : "Rulează")
-                                : "Niciun video pe Desktop"
+                                ? (model.desktopEngine.isPaused ? "Paused" : "Playing")
+                                : "No video on the Desktop"
                         ) {
-                            Button(model.desktopEngine.isPaused ? "Reia" : "Pauză") {
+                            Button(model.desktopEngine.isPaused ? "Resume" : "Pause") {
                                 model.toggleDesktopPlayback()
                             }
                             .buttonStyle(TVGlassButtonStyle(height: 34))
@@ -49,16 +49,16 @@ struct SettingsView: View {
                     SettingsGroup(title: "Lock Screen") {
                         SettingsRow(
                             symbol: "lock.fill",
-                            title: "Stare",
+                            title: "Status",
                             detail: model.loginWallpaperStatus.isReady
-                                ? "Pregătit. Wallpaperul tău apare când blochezi ecranul."
-                                : "Alege un video pentru Lock Screen din Bibliotecă."
+                                ? "Ready. Your wallpaper appears when you lock the screen."
+                                : "Choose a video for the Lock Screen from the Library."
                         ) {
                             StatusDot(isOn: model.loginWallpaperStatus.isReady)
                         }
                         SettingsDivider()
-                        SettingsRow(symbol: "lock.display", title: "Testează acum", detail: "Blochează ecranul ca să vezi rezultatul (⇧⌘L).") {
-                            Button("Blochează") {
+                        SettingsRow(symbol: "lock.display", title: "Test Now", detail: "Lock the screen to see the result (⇧⌘L).") {
+                            Button("Lock") {
                                 Task { await model.lockNowWithWallpaperStudio() }
                             }
                             .buttonStyle(TVGlassButtonStyle(height: 34))
@@ -67,13 +67,13 @@ struct SettingsView: View {
                     }
 
                     SettingsGroup(title: "Screen Saver") {
-                        SettingsRow(symbol: "sparkles.tv", title: "Componentă", detail: screenSaverStatus) {
+                        SettingsRow(symbol: "sparkles.tv", title: "Component", detail: screenSaverStatus) {
                             HStack(spacing: 8) {
-                                Button(model.isScreenSaverInstalled ? "Actualizează" : "Instalează") {
+                                Button(model.isScreenSaverInstalled ? "Update" : "Install") {
                                     model.installScreenSaver()
                                 }
                                 .buttonStyle(TVGlassButtonStyle(height: 34))
-                                Button("Setări macOS") {
+                                Button("macOS Settings") {
                                     model.integrations.openScreenSaverSettings()
                                 }
                                 .buttonStyle(TVGlassButtonStyle(height: 34))
@@ -82,10 +82,10 @@ struct SettingsView: View {
                     }
 
                     SettingsGroup(title: "Import") {
-                        SettingsRow(symbol: "square.and.arrow.down", title: "Calitate la import", detail: qualityDetail) {
+                        SettingsRow(symbol: "square.and.arrow.down", title: "Import Quality", detail: qualityDetail) {
                             Picker("", selection: $model.importQuality) {
-                                Text("Eficient").tag(MediaQuality.efficient)
-                                Text("Nativ").tag(MediaQuality.native)
+                                Text("Efficient").tag(MediaQuality.efficient)
+                                Text("Native").tag(MediaQuality.native)
                                 Text("Original").tag(MediaQuality.original)
                             }
                             .labelsHidden()
@@ -94,15 +94,15 @@ struct SettingsView: View {
                         }
                         SettingsDivider()
                         SettingsRow(symbol: "play.rectangle.fill", title: "YouTube", detail: youtubeStatus) {
-                            Button("Importă…") { model.isYouTubeSheetPresented = true }
+                            Button("Import…") { model.isYouTubeSheetPresented = true }
                                 .buttonStyle(TVGlassButtonStyle(height: 34))
                                 .disabled(!isYouTubeReady)
                         }
                     }
 
-                    SettingsGroup(title: "Stocare") {
-                        SettingsRow(symbol: "internaldrive", title: "Biblioteca", detail: model.backendLocationLabel) {
-                            Button("Arată în Finder") { model.revealLibraryInFinder() }
+                    SettingsGroup(title: "Storage") {
+                        SettingsRow(symbol: "internaldrive", title: "Library", detail: model.backendLocationLabel) {
+                            Button("Show in Finder") { model.revealLibraryInFinder() }
                                 .buttonStyle(TVGlassButtonStyle(height: 34))
                         }
                     }
@@ -127,26 +127,26 @@ struct SettingsView: View {
 
     private var qualityDetail: String {
         switch model.importQuality {
-        case .efficient: "Fișiere mici, până la 1080p."
-        case .native: "Echilibrat, până la 4K. Recomandat."
-        case .original: "Fără redimensionare — fidelitate maximă."
+        case .efficient: "Smaller files, up to 1080p."
+        case .native: "Balanced, up to 4K. Recommended."
+        case .original: "No resizing, maximum fidelity."
         }
     }
 
     private var youtubeStatus: String {
         switch model.youtubeHelperStatus {
-        case .unavailable: "Nu este inclus în această versiune."
-        case let .ready(version): "Pregătit · \(version) · calitatea maximă disponibilă"
-        case let .failed(reason): "Necesită atenție: \(reason)"
+        case .unavailable: "Not included in this build."
+        case let .ready(version): "Ready · \(version) · highest available quality"
+        case let .failed(reason): "Needs attention: \(reason)"
         }
     }
 
     private var screenSaverStatus: String {
-        guard model.isScreenSaverInstalled else { return "Neinstalat" }
-        guard model.integrations.isScreenSaverCurrent else { return "Există o versiune nouă" }
+        guard model.isScreenSaverInstalled else { return "Not installed" }
+        guard model.integrations.isScreenSaverCurrent else { return "Update available" }
         return model.integrations.isScreenSaverSelected
-            ? "Instalat și activ · rulează mereu fără sunet"
-            : "Instalat · alege un wallpaper pentru Screen Saver"
+            ? "Installed and active · always muted"
+            : "Installed · choose a Screen Saver wallpaper"
     }
 }
 
@@ -215,7 +215,7 @@ private struct StatusDot: View {
     var body: some View {
         HStack(spacing: 6) {
             Circle().fill(isOn ? Color.green : Color.orange).frame(width: 8, height: 8)
-            Text(isOn ? "Activ" : "De configurat")
+            Text(isOn ? "Active" : "Not configured")
                 .font(.system(size: 12.5, weight: .semibold))
                 .foregroundStyle(TV.secondaryText)
         }

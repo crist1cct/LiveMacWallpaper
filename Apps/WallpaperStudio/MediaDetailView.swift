@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import WallpaperCore
 
-/// Full-window page for one wallpaper, modeled on an Apple TV title page: the
+/// Full-window page for one wallpaper: the
 /// artwork plays behind everything, details and the single primary action sit on
 /// the left, and each surface (Desktop / Screen Saver / Lock Screen) is one click.
 struct MediaDetailView: View {
@@ -44,17 +44,17 @@ struct MediaDetailView: View {
                 .keyboardShortcut(.cancelAction)
                 .opacity(0)
         }
-        .alert("Redenumește", isPresented: $isRenaming) {
-            TextField("Nume", text: $renameText)
-            Button("Salvează") { model.rename(item, to: renameText) }
-            Button("Anulează", role: .cancel) {}
+        .alert("Rename", isPresented: $isRenaming) {
+            TextField("Name", text: $renameText)
+            Button("Save") { model.rename(item, to: renameText) }
+            Button("Cancel", role: .cancel) {}
         }
-        .confirmationDialog("Ștergi „\(item.title)” din Bibliotecă?", isPresented: $isConfirmingDelete) {
-            Button("Șterge din Bibliotecă", role: .destructive) {
+        .confirmationDialog("Delete “\(item.title)” from the Library?", isPresented: $isConfirmingDelete) {
+            Button("Delete from Library", role: .destructive) {
                 model.delete(item)
             }
         } message: {
-            Text("Se șterge doar copia din Wallpaper Studio. Fișierul original rămâne neatins.")
+            Text("Only the Wallpaper Studio copy is deleted. The original file is not touched.")
         }
         .preferredColorScheme(.dark)
     }
@@ -84,7 +84,7 @@ struct MediaDetailView: View {
                 Image(systemName: "chevron.left")
             }
             .buttonStyle(TVGlassButtonStyle(circle: true, height: 40))
-            .help("Înapoi (Esc)")
+            .help("Back (Esc)")
 
             Spacer()
 
@@ -94,7 +94,7 @@ struct MediaDetailView: View {
                         .contentTransition(.symbolEffect(.replace))
                 }
                 .buttonStyle(TVGlassButtonStyle(circle: true, height: 40))
-                .help(isMuted ? "Ascultă sunetul clipului" : "Oprește sunetul")
+                .help(isMuted ? "Play clip audio" : "Mute")
             }
             Button {
                 withAnimation(TV.pageSpring) { isPreviewing = true }
@@ -102,7 +102,7 @@ struct MediaDetailView: View {
                 Image(systemName: "arrow.up.left.and.arrow.down.right")
             }
             .buttonStyle(TVGlassButtonStyle(circle: true, height: 40))
-            .help("Previzualizare pe tot ecranul")
+            .help("Full-window preview")
         }
         .padding(.leading, 84) // clear of the window's traffic lights
         .padding(.trailing, 28)
@@ -112,7 +112,7 @@ struct MediaDetailView: View {
     private var previewHint: some View {
         VStack {
             Spacer()
-            Text("Clic oriunde sau Esc pentru a reveni")
+            Text("Click anywhere or press Esc to return")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.white.opacity(0.8))
                 .padding(.horizontal, 14)
@@ -150,7 +150,7 @@ struct MediaDetailView: View {
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                Text(item.kind == .video ? "WALLPAPER ANIMAT" : "IMAGINE")
+                Text(item.kind == .video ? "MOTION WALLPAPER" : "IMAGE")
                     .font(.system(size: 12, weight: .heavy))
                     .tracking(2)
                     .foregroundStyle(TV.secondaryText)
@@ -172,7 +172,7 @@ struct MediaDetailView: View {
             if !liveOn.isEmpty {
                 HStack(spacing: 6) {
                     Circle().fill(.green).frame(width: 7, height: 7)
-                    Text("Activ pe " + liveOn.map(\.title).joined(separator: ", "))
+                    Text("Active on " + liveOn.map(\.title).joined(separator: ", "))
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.85))
                 }
@@ -192,7 +192,7 @@ struct MediaDetailView: View {
                     } else {
                         Image(systemName: "checkmark")
                     }
-                    Text(model.isApplying ? "Se aplică…" : destination.applyTitle)
+                    Text(model.isApplying ? "Applying…" : destination.applyTitle)
                 }
                 .frame(minWidth: 200)
             }
@@ -204,25 +204,25 @@ struct MediaDetailView: View {
                 Image(systemName: item.isFavorite ? "heart.fill" : "heart")
             }
             .buttonStyle(TVGlassButtonStyle(circle: true))
-            .help(item.isFavorite ? "Elimină din Favorite" : "Adaugă la Favorite")
+            .help(item.isFavorite ? "Remove from Favorites" : "Add to Favorites")
 
             Menu {
-                Button("Redenumește…", systemImage: "pencil") {
+                Button("Rename…", systemImage: "pencil") {
                     renameText = item.title
                     isRenaming = true
                 }
                 if let url = model.mediaURLs[item.id]?.prepared {
-                    Button("Arată în Finder", systemImage: "folder") {
+                    Button("Show in Finder", systemImage: "folder") {
                         NSWorkspace.shared.activateFileViewerSelecting([url])
                     }
                 }
                 if case let .youtube(_, webpage, _) = item.origin {
-                    Button("Deschide pe YouTube", systemImage: "play.rectangle") {
+                    Button("Open on YouTube", systemImage: "play.rectangle") {
                         NSWorkspace.shared.open(webpage)
                     }
                 }
                 Divider()
-                Button("Șterge din Bibliotecă…", systemImage: "trash", role: .destructive) {
+                Button("Delete from Library…", systemImage: "trash", role: .destructive) {
                     isConfirmingDelete = true
                 }
             } label: {
@@ -236,7 +236,7 @@ struct MediaDetailView: View {
             .buttonStyle(.plain)
             .menuIndicator(.hidden)
             .fixedSize()
-            .help("Mai multe acțiuni")
+            .help("More actions")
         }
     }
 
@@ -257,7 +257,7 @@ struct MediaDetailView: View {
 
 // MARK: - Destination picker
 
-/// Three large surface buttons; the chosen one turns white like a focused tvOS tab.
+/// Three large surface buttons; the chosen one is filled white.
 private struct DestinationPicker: View {
     let selection: WallpaperDestination
     let liveOn: [WallpaperDestination]
@@ -265,7 +265,7 @@ private struct DestinationPicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("UNDE ÎL PUI")
+            Text("DESTINATION")
                 .font(.system(size: 11, weight: .heavy))
                 .tracking(1.6)
                 .foregroundStyle(TV.tertiaryText)
@@ -351,7 +351,7 @@ private struct OptionsPanel: View {
             Divider().overlay(TV.hairline).padding(.vertical, 14)
             soundRow
             if destination == .lockScreen {
-                Text("Lock Screen folosește providerul nativ de wallpaper din macOS 26. Sunetul pornește doar după ce ecranul este blocat și se oprește instant la deblocare.")
+                Text("The Lock Screen uses the native macOS 26 wallpaper provider. Audio starts only once the screen is locked and stops immediately on unlock.")
                     .font(.system(size: 12))
                     .foregroundStyle(TV.tertiaryText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -364,23 +364,23 @@ private struct OptionsPanel: View {
 
     private var displaysRow: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Ecrane", systemImage: "display.2")
+            Label("Displays", systemImage: "display.2")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(TV.secondaryText)
             if model.displays.isEmpty {
-                Text("Niciun ecran detectat")
+                Text("No displays detected")
                     .font(.system(size: 13))
                     .foregroundStyle(TV.tertiaryText)
             } else {
                 ScrollView(.horizontal) {
                     HStack(spacing: 8) {
-                        Chip(title: "Toate", isSelected: configuration.wrappedValue.displayTarget == .all) {
+                        Chip(title: "All", isSelected: configuration.wrappedValue.displayTarget == .all) {
                             configuration.wrappedValue.displayTarget = .all
                         }
                         if model.displays.count > 1 {
                             ForEach(model.displays) { display in
                                 Chip(
-                                    title: display.name + (display.isMain ? " · principal" : ""),
+                                    title: display.name + (display.isMain ? " · main" : ""),
                                     isSelected: configuration.wrappedValue.displayTarget.explicitDisplayID == display.id
                                 ) {
                                     configuration.wrappedValue.displayTarget = .display(display.id)
@@ -402,7 +402,7 @@ private struct OptionsPanel: View {
                     get: { !configuration.wrappedValue.muteVideo },
                     set: { configuration.wrappedValue.muteVideo = !$0 }
                 )) {
-                    Label("Sunet", systemImage: "speaker.wave.2.fill")
+                    Label("Sound", systemImage: "speaker.wave.2.fill")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(TV.secondaryText)
                 }
@@ -431,7 +431,7 @@ private struct OptionsPanel: View {
             .animation(.snappy(duration: 0.2), value: configuration.wrappedValue.muteVideo)
         } else {
             Label(
-                destination == .screenSaver ? "Screen Saver rulează mereu fără sunet" : "Imaginile nu au sunet",
+                destination == .screenSaver ? "The Screen Saver always runs muted" : "Images have no sound",
                 systemImage: "speaker.slash.fill"
             )
             .font(.system(size: 13, weight: .semibold))

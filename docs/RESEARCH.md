@@ -1,38 +1,40 @@
-# Research tehnic
+# Technical research
 
-Data verificării: 5 septembrie 2026.
+Last verified: September 5, 2026.
 
-## Rezumat executiv
+## Summary
 
-Aplicația poate oferi o experiență aproape complet automată, dar cele trei destinații nu au același nivel de suport în macOS:
+The three destinations don't have the same level of support in macOS:
 
-| Destinație | Implementare | Stabilitate |
+| Destination | Implementation | Stability |
 |---|---|---|
-| Desktop static | `NSWorkspace.setDesktopImageURL` | API publică Apple |
-| Desktop video | fereastră AppKit la nivelul Desktopului + AVFoundation | API-uri publice, compoziție proprie |
-| Screen Saver | bundle `.saver` cu `ScreenSaverView` | framework Apple, instalare externă |
-| Lock Screen separat | editarea ramurii `Idle`/asset Aerial | integrare privată, experimentală |
+| Desktop image | `NSWorkspace.setDesktopImageURL` | public Apple API |
+| Desktop video | AppKit window at Desktop level + AVFoundation | public APIs, own compositing |
+| Screen Saver | `.saver` bundle with `ScreenSaverView` | Apple framework, external install |
+| Independent Lock Screen | wallpaper provider for the `Idle` branch | private integration |
 
-Concluzia de produs este să păstrăm funcțiile Desktop și redare ca bază stabilă, iar Lock Screen independent ca modul experimental cu backup și Restore.
+Desktop and Screen Saver playback form the stable base. The independent Lock Screen
+is an isolated module with verification and restore.
 
-## Ce oferă oficial Apple
+## What Apple provides publicly
 
-### Desktop static
+### Desktop image
 
-`NSWorkspace` poate citi și seta imaginea Desktop pentru un anumit `NSScreen`, iar apelul trebuie făcut pe main thread. Este soluția oficială pentru imagini statice.
+`NSWorkspace` can read and set the Desktop image for a given `NSScreen`; the call must
+be made on the main thread.
 
-Sursă: https://developer.apple.com/documentation/appkit/nsworkspace/desktopimageurl(for:)
+Source: https://developer.apple.com/documentation/appkit/nsworkspace/desktopimageurl(for:)
 
-### Redare și pregătire video
+### Video preparation and playback
 
-AVFoundation oferă:
+AVFoundation provides:
 
-- `AVAssetExportSession` pentru conversie;
-- preseturi HEVC 1080p, 4K și highest quality;
-- `AVQueuePlayer` și `AVPlayerLooper` pentru loop;
-- `AVAssetImageGenerator` pentru thumbnails și postere asincrone.
+- `AVAssetExportSession` for conversion;
+- HEVC presets for 1080p, 4K and highest quality;
+- `AVQueuePlayer` and `AVPlayerLooper` for looping;
+- `AVAssetImageGenerator` for asynchronous thumbnails and posters.
 
-Surse:
+Sources:
 
 - https://developer.apple.com/documentation/avfoundation/avassetexportsession
 - https://developer.apple.com/documentation/avfoundation/export-presets
@@ -40,213 +42,197 @@ Surse:
 - https://developer.apple.com/documentation/avfoundation/avplayerlooper
 - https://developer.apple.com/documentation/avfoundation/avassetimagegenerator/generatecgimageasynchronously(for:completionhandler:)
 
-### Fereastra de wallpaper
+### Wallpaper window
 
-Core Graphics definește nivelurile `desktopWindow` și `desktopIconWindow`. AppKit permite ferestrelor să intre în toate Spaces și să rămână staționare în Mission Control. Aceste API-uri fac posibil un video aflat deasupra imaginii statice și sub iconițele Finder.
+Core Graphics defines the `desktopWindow` and `desktopIconWindow` levels. AppKit lets
+windows join all Spaces and stay stationary in Mission Control. Together they allow a
+video above the desktop picture and below the Finder icons.
 
-Surse:
+Sources:
 
 - https://developer.apple.com/documentation/coregraphics/cgwindowlevelkey
 - https://developer.apple.com/documentation/appkit/nswindow/collectionbehavior-swift.struct
 
 ### Screen Saver
 
-Apple documentează bundle-urile cu extensia `.saver`, instalate într-un director `Library/Screen Savers`, cu o subclasă `ScreenSaverView`. Documentația recomandă binary universal pentru compatibilitate `arm64` și `x86_64`.
+Apple documents `.saver` bundles installed in a `Library/Screen Savers` directory, with
+a `ScreenSaverView` subclass. The documentation recommends a universal binary for
+`arm64` and `x86_64`.
 
-Sursă: https://developer.apple.com/documentation/screensaver
+Source: https://developer.apple.com/documentation/screensaver
 
-### Pornire automată
+### Launch at login
 
-În macOS 13+, `SMAppService` este API-ul recomandat pentru Login Items, LaunchAgents și LaunchDaemons incluse în bundle. Înregistrarea rămâne supusă aprobării utilizatorului.
+On macOS 13+, `SMAppService` is the recommended API for login items, LaunchAgents and
+LaunchDaemons bundled with the app. Registration remains subject to user approval.
 
-Sursă: https://developer.apple.com/documentation/servicemanagement/smappservice
+Source: https://developer.apple.com/documentation/servicemanagement/smappservice
 
-### Fișiere alese de utilizator
+### User-selected files
 
-Apple recomandă `fileImporter` sau `NSOpenPanel`. Pentru acces persistent în App Sandbox sunt necesare security-scoped bookmarks. Planul nostru copiază media în Application Support, reducând dependența de acces ulterior la fișierul original.
+Apple recommends `fileImporter` or `NSOpenPanel`. Persistent access in the App Sandbox
+needs security-scoped bookmarks. Wallpaper Studio copies media into Application
+Support, so it doesn't depend on later access to the original file.
 
-Sursă: https://developer.apple.com/documentation/security/accessing-files-from-the-macos-app-sandbox
+Source: https://developer.apple.com/documentation/security/accessing-files-from-the-macos-app-sandbox
 
-### Energie și lifecycle
+### Energy and lifecycle
 
-`NSWorkspace` publică notificări pentru sleep/wake, sesiune și Spaces. `ProcessInfo` oferă Low Power Mode și thermal state. Instruments și Xcode oferă Time Profiler, Energy/Power Profiler, File Activity și metrici de performanță.
+`NSWorkspace` posts notifications for sleep/wake, session changes and Spaces.
+`ProcessInfo` exposes Low Power Mode and the thermal state. Instruments provides Time
+Profiler, Energy/Power Profiler and File Activity.
 
-Surse:
+Sources:
 
 - https://developer.apple.com/documentation/appkit/nsworkspace
 - https://developer.apple.com/documentation/foundation/processinfo
 - https://developer.apple.com/documentation/xcode/improving-your-app-s-performance
 
-### Interfață nativă
+## The Lock Screen limitation
 
-Human Interface Guidelines recomandă sidebar pentru zonele principale, toolbar restrâns la acțiuni frecvente, comenzi echivalente în menu bar și Settings standard macOS.
+Apple's public Lock Screen documentation covers security, timeouts, the password,
+the message and the clock appearance. It offers no public API to set an independent
+Lock Screen video. This conclusion comes from the available documentation. It doesn't
+prove that Apple has no internal mechanism.
 
-Surse:
+Source: https://support.apple.com/guide/mac-help/change-lock-screen-settings-on-mac-mh11784/mac
 
-- https://developer.apple.com/design/human-interface-guidelines/designing-for-macos/
-- https://developer.apple.com/design/human-interface-guidelines/sidebars
-- https://developer.apple.com/design/human-interface-guidelines/toolbars
-- https://developer.apple.com/design/human-interface-guidelines/settings
+On macOS 26.6 the wallpaper store has separate `Desktop` and `Idle` branches under
+`AllSpacesAndDisplays` and `SystemDefault`. The separation therefore exists
+internally, but the format is not public API and can change with a macOS update.
 
-## Limita Lock Screen
+macOS 26 also hosts wallpaper providers as ExtensionKit extensions inside
+`WallpaperAgent`, which renders them into a remote `CAContext` under the
+authentication UI. Wallpaper Studio's Lock Screen video uses this path. The provider
+draws only its own layer, and the password field, Touch ID and every security control
+stay with the system.
 
-Documentația publică Apple pentru Lock Screen descrie securitatea, timpul de oprire, parola, mesajul și clock appearance, dar nu oferă o API publică pentru a seta independent un video de lock screen.
+### Locked session vs. cold boot
 
-Aceasta este o concluzie din documentația disponibilă, nu o garanție contractuală că Apple nu are mecanisme interne.
+There are two technically different moments:
 
-Sursă: https://support.apple.com/guide/mac-help/change-lock-screen-settings-on-mac-mh11784/mac
+1. After `⌃⌘Q` or when returning from the Screen Saver, the user session already
+   exists and the native wallpaper provider can play video under the authentication
+   controls. This is the Lock Screen video feature.
+2. Right after boot, especially with FileVault, the user session and its agents
+   aren't running yet and home-folder files may be unavailable. No user process can
+   play video in that phase.
 
-Pe Mac-ul local cu macOS 26.6, store-ul existent are ramuri separate `Desktop` și `Idle` în `AllSpacesAndDisplays` și `SystemDefault`. Acest lucru confirmă că separarea există intern, dar formatul nu este API public și se poate schimba la un update macOS.
+The app never uses its own window above the system shielding level.
 
-### Autentificare după lock versus autentificare la cold boot
-
-Pentru cerința produsului sunt două momente tehnic diferite:
-
-1. După `Control–Command–Q` sau revenirea din Screen Saver, sesiunea utilizatorului există deja. Providerul nativ Wallpaper/Aerial poate reda un asset video sub controalele de autentificare. Acesta este obiectivul funcției `Video Lock Screen`.
-2. Imediat după pornire, mai ales cu FileVault, sesiunea utilizatorului și agentul aplicației nu sunt încă active, iar fișierele din home pot să nu fie disponibile. Pentru această fază produsul oferă un poster static extras din video, nu promite redare video.
-
-Implementările open-source analizate confirmă primul scenariu prin asset Aerial și ramura `Idle`. Ele generează separat un poster pentru cold boot, ceea ce susține aceeași delimitare.
-
-Aplicația nu va folosi o fereastră proprie ridicată peste nivelul de protecție al sistemului. Video-ul trebuie redat de componenta nativă macOS, astfel încât parola, Touch ID și toate controalele de securitate să rămână integral gestionate de sistem.
-
-## Proiecte open-source analizate
+## Open-source projects reviewed
 
 ### Wallpaper Sync
 
-Repo: https://github.com/GonzaloRojas14/Wallpaper-Sync
+https://github.com/GonzaloRojas14/Wallpaper-Sync
 
-Pattern-uri validate:
+Validated patterns: Desktop video through `AVPlayer` in a window below the icons,
+one-time HEVC conversion, one player per display, pause on lock and sleep, Aerial
+configuration and `Idle` branch updates with backup and restore.
 
-- video pe Desktop prin `AVPlayer` într-o fereastră sub iconițe;
-- conversie HEVC o singură dată;
-- câte un player per display;
-- pauză la lock și sleep;
-- configurare Aerial și update al ramurii `Idle`;
-- backup și restore al assetului Aerial.
-
-Riscuri observate:
-
-- dependență runtime de FFmpeg și Homebrew;
-- restartarea proceselor Apple;
-- modificarea formatelor private ale wallpaper store;
-- poster cold-boot scris într-o locație de sistem.
+Risks observed: runtime dependency on FFmpeg and Homebrew, restarting Apple processes,
+editing private wallpaper-store formats, and writing a cold-boot poster to a system
+location.
 
 ### LivePaper
 
-Repo: https://github.com/Raunik2/LivePaper
+https://github.com/Raunik2/LivePaper
 
-Pattern-uri validate:
+Validated patterns: `AVQueuePlayer` + `AVPlayerLooper` + `AVPlayerLayer`, per-display
+windows, reacting to Spaces, sleep and wake, a static snapshot fallback, and a health
+check for the private integration.
 
-- `AVQueuePlayer` + `AVPlayerLooper` + `AVPlayerLayer`;
-- ferestre per monitor;
-- reacție la Spaces, sleep și wake;
-- snapshot static ca fallback;
-- înregistrarea unui asset în manifestul Aerial;
-- health check pentru integrarea privată.
-
-Pattern-uri pe care planul nostru nu le va adopta:
-
-- fereastră ridicată peste nivelul de shielding al Lock Screen;
-- instalarea automată a unor binare descărcate;
-- preferințe Screen Saver modificate fără separarea clară Stable/Experimental.
+Not adopted: a window raised above the Lock Screen shielding level, automatic
+installation of downloaded binaries, and Screen Saver preferences changed without a
+clear separation between stable and private integrations.
 
 ### VideoScreenSaver
 
-Repo: https://github.com/GeneralD/VideoScreenSaver
+https://github.com/GeneralD/VideoScreenSaver
 
-Pattern-uri validate:
+Validated patterns: `ScreenSaverView` with `AVPlayerLayer`, muted aspect-fill playback,
+complete cleanup in `stopAnimation`, and a preview/config sheet in the Screen Saver
+host.
 
-- `ScreenSaverView` cu `AVPlayerLayer`;
-- playback mut și aspect fill;
-- cleanup complet în `stopAnimation`;
-- preview/config sheet în host-ul Screen Saver.
+### Phosphene
 
-Toate cele trei proiecte sunt MIT. Nu este necesară copierea codului lor; dacă reutilizăm ulterior o porțiune substanțială, păstrăm copyright-ul și licența cerute.
+The macOS 26 wallpaper extension (sample-buffer renderer, XPC handlers, playback
+policy) is derived from Phosphene under the MIT license; see `Vendor/Phosphene-MIT.txt`.
 
-## Distribuție
+## Distribution
 
-Mac App Store cere App Sandbox și nu permite instalarea de cod sau resurse în locații comune, auto-start fără consimțământ ori privilegii root. Din acest motiv, funcționalitatea completă este potrivită pentru distribuție Developer ID în afara Store.
+The Mac App Store requires the App Sandbox and forbids installing code into shared
+locations, auto-start without consent, and root privileges. The full feature set
+therefore targets Developer ID distribution outside the Store. A Developer ID build
+needs valid signatures, Hardened Runtime and notarization (`notarytool` and stapling).
 
-Un build Developer ID trebuie să aibă semnături valide, Hardened Runtime și notarizare; distribuția folosește `notarytool` și stapling.
-
-Surse:
+Sources:
 
 - https://developer.apple.com/app-store/review/guidelines/
 - https://developer.apple.com/documentation/xcode/preparing-your-app-for-distribution
 - https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution
 
-## Toolchain local verificat
+## Toolchain
 
-- macOS 26.6, Apple Silicon (`arm64`).
-- Xcode 26.6.
-- macOS SDK 26.5.
-- Swift 6.3.3.
-- Homebrew instalat.
-- O identitate validă de code signing disponibilă.
-- Framework-uri prezente în SDK: SwiftUI/AppKit, AVFoundation, ScreenSaver, ServiceManagement și SwiftData.
-- XcodeGen 2.46.0 instalat pentru generarea viitoarelor targets de aplicație.
-- `yt-dlp` 2026.8.19 instalat numai ca unealtă locală de dezvoltare și testare.
-- `ffmpeg` nu este cerut de la utilizator: aplicația include un helper minimal universal construit din sursa oficială 9.0.1.
-- Tuist nu este necesar.
+- macOS 26.6 on Apple Silicon, Xcode 26.6, macOS SDK 26.5, Swift 6.3.3.
+- XcodeGen 2.46.0 generates the multi-target project from `project.yml`. It is a
+  development tool and is not shipped.
+- `yt-dlp` 2026.8.19, embedded as a pinned helper.
+- A minimal universal FFmpeg helper built from the official 9.0.1 source. Users never
+  need to install FFmpeg.
 
-## Decizii despre instrumente
+## Tool decisions
 
-### XcodeGen — recomandat
+### XcodeGen
 
-Un proiect cu app, agent, `.saver`, tests și UI tests devine greu de întreținut manual în `project.pbxproj`. XcodeGen generează proiectul dintr-un `project.yml` lizibil și reproductibil. Este o unealtă de development, nu intră în aplicația livrată.
+A project with an app, a login item, an extension, a `.saver`, a CLI tool and tests is
+hard to maintain by hand in `project.pbxproj`. XcodeGen produces it reproducibly from
+a readable `project.yml`.
 
-Repo: https://github.com/yonaskolb/XcodeGen
+https://github.com/yonaskolb/XcodeGen
 
-### FFmpeg — fallback inclus
+### FFmpeg as a fallback
 
-Testul real cu un MP4 VP9 3840×2160 a arătat că AVFoundation poate inspecta pista,
-dar refuză presetările HEVC/H.264 și nu poate extrage posterul. Aplicația încearcă
-întâi conversia Apple; numai dacă aceasta nu poate produce un fișier redabil,
-apelează helperul FFmpeg minimal și transformă pista în H.264 fără sunet.
+A real test with a VP9 3840×2160 MP4 showed that AVFoundation can inspect the track,
+but it refuses the HEVC/H.264 presets and can't extract a poster. The app therefore
+tries the Apple conversion first. Only when that can't produce a playable file does it
+call the minimal FFmpeg helper, which transcodes the track to H.264 without audio.
 
-Helperul este compilat universal pentru `arm64` și `x86_64`, cu o configurație
-LGPL 2.1+ fără componente GPL. DMG-ul include licența, arhiva sursei corespunzătoare,
-checksumul și scriptul reproductibil de build.
+The helper is built universal for `arm64` and `x86_64` with an LGPL 2.1+ configuration
+and no GPL components. The DMG ships the license, the matching source archive, its
+checksum and the reproducible build script.
 
-Sursă: https://ffmpeg.org/legal.html
+https://ffmpeg.org/legal.html
 
-### Import YouTube
+### YouTube import
 
-Termenii YouTube interzic descărcarea conținutului în afara cazurilor autorizate expres de serviciu sau acoperite de permisiunile scrise cerute. Politicile YouTube API interzic clienților API să descarce, importe, facă backup, cache sau să stocheze copii ale conținutului audiovizual fără aprobare prealabilă. Din acest motiv, funcția are confirmare explicită, nu încearcă să ocolească autentificarea/DRM și rămâne dezactivată în distribuția publică până la review juridic.
-
-Surse:
+The YouTube Terms of Service prohibit downloading content except where the service
+expressly authorizes it or the required written permissions exist. The YouTube API
+policies forbid API clients from downloading, importing, backing up, caching or storing
+copies of audiovisual content without prior approval. The feature therefore requires
+an explicit confirmation. It doesn't try to bypass authentication or DRM, and it
+never uses the YouTube Data API.
 
 - https://www.youtube.com/static?template=terms
 - https://developers.google.com/youtube/terms/developer-policies
 
-Pentru prototipul local, `yt-dlp` oferă metadata JSON (`--dump-single-json`), output pe linii și template-uri de progres. Există și un binar universal macOS, ceea ce permite izolarea helperului în bundle în locul unei dependențe Homebrew la client. Backendul folosește `--ignore-config`, `--no-playlist`, un director temporar unic și argumente `Process` separate.
-
-Surse:
+`yt-dlp` provides JSON metadata (`--dump-single-json`), line-based progress output and
+a universal macOS binary. The binary can be isolated inside the app bundle instead of
+depending on Homebrew. The backend passes `--ignore-config`, `--no-playlist`, a
+unique temporary directory and separate `Process` arguments.
 
 - https://github.com/yt-dlp/yt-dlp/blob/master/README.md
 - https://github.com/yt-dlp/yt-dlp/releases
 
-### Teste
+### Tests
 
-- Swift Testing pentru unit și integration tests.
-- XCTest UI pentru fluxurile Library/Apply/Restore.
-- Fixtures plist anonimizate pentru adapterele Lock Screen.
-
-Surse:
+Swift Testing for unit and integration tests, with anonymized property-list fixtures
+for the Lock Screen store inspector.
 
 - https://developer.apple.com/documentation/testing
-- https://developer.apple.com/documentation/xcode/adding-tests-to-your-xcode-project
 
-### Logging și diagnostic
+### Logging
 
-Folosim `Logger` din OSLog în loc de fișiere text ad-hoc. Mesajele sensibile sunt private implicit, iar utilizatorul poate exporta un raport anonimizat.
+`Logger` from OSLog, with sensitive values private by default.
 
-Sursă: https://developer.apple.com/documentation/os/logging/
-
-## Skill-uri instalate pentru următoarea etapă
-
-- `security-best-practices` — review de securitate în timpul implementării.
-- `security-threat-model` — modelarea riscurilor pentru import, helper și Lock Screen Experimental.
-- `screenshot` — QA vizual al interfeței native.
-
-Catalogul nu conține în prezent un skill dedicat dezvoltării Swift/macOS. Zona experimentală a catalogului nu a fost disponibilă la verificare.
+https://developer.apple.com/documentation/os/logging/

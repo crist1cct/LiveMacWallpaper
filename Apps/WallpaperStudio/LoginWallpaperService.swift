@@ -25,19 +25,19 @@ enum LoginWallpaperError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .helperMissing:
-            "Componenta de instalare Lock Screen lipsește. Reinstalează Wallpaper Studio din DMG."
+            "The Lock Screen installer component is missing. Reinstall Wallpaper Studio from the DMG."
         case .rendererMissing:
-            "Rendererul video Login Window lipsește. Reinstalează Wallpaper Studio din DMG."
+            "The Login Window video renderer is missing. Reinstall Wallpaper Studio from the DMG."
         case .videoRequired:
-            "Alege un videoclip din Bibliotecă pentru Lock Screen."
+            "Choose a video from the Library for the Lock Screen."
         case .configurationWriteFailed:
-            "Setările videoclipului Login Window nu au putut fi pregătite."
+            "The Login Window video settings couldn't be prepared."
         case .verificationFailed:
-            "Posterul Lock Screen a fost copiat, dar instalarea nu a putut fi verificată."
+            "The Lock Screen poster was copied, but the installation couldn't be verified."
         case let .administratorOperationFailed(message):
             message.isEmpty
-                ? "Actualizarea Lock Screen a fost anulată sau refuzată."
-                : "Actualizarea Lock Screen nu a reușit: \(message)"
+                ? "The Lock Screen update was cancelled or denied."
+                : "The Lock Screen update failed: \(message)"
         }
     }
 }

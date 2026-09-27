@@ -126,7 +126,7 @@ public final class WallpaperStudioScreenSaverView: ScreenSaverView {
         do {
             let store = ScreenSaverRuntimeStore.sharedForCurrentUser()
             guard let content = try store.load() else {
-                showMessage("Aplică un conținut pentru Screen Saver din Wallpaper Studio.")
+                showMessage("Choose Screen Saver content in Wallpaper Studio.")
                 return
             }
             let configuration = content.configuration

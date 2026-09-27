@@ -1,63 +1,69 @@
-# Build și distribuție
+# Build and distribution
 
-## Artefact curent
+## Artifact
 
-- Versiune: 1.5.4
-- Format: DMG cu aplicația și shortcut către Applications
-- Arhitecturi: Apple Silicon (`arm64`) și Intel (`x86_64`)
-- Conținut inclus: aplicație, renderer Desktop, modul Screen Saver, utilitar pentru
-  eliminarea integrărilor Lock Screen vechi, helper YouTube și FFmpeg universal
-- Deployment target: macOS 15+
-- Semnătură curentă pentru QA: Apple Development
-- Notarizare: nu este efectuată fără certificat `Developer ID Application` și profil notarytool
+- Format: DMG containing the app and a shortcut to `/Applications`
+- Architectures: Apple Silicon (`arm64`) and Intel (`x86_64`)
+- Contents: app, Desktop renderer (login item), wallpaper extension (macOS 26),
+  Screen Saver module, legacy-integration cleanup tool, YouTube helper and universal
+  FFmpeg helper
+- Deployment target: macOS 15 (extension: macOS 26)
+- Signing for QA builds: Apple Development
+- Notarization: requires a `Developer ID Application` certificate and a `notarytool`
+  keychain profile
 
-Buildul 1.5.4 înregistrează automat providerul Wallpaper Studio la prima pornire
-din `/Applications` și curăță înregistrarea explicită înainte de aplicare. Pentru
-distribuție către alte persoane, semnătura Apple Development nu este suficientă:
-folosește Developer ID + notarizare, altfel WallpaperAgent poate refuza extensia
-chiar dacă aplicația principală se deschide.
+On first launch from `/Applications` the app registers the Wallpaper Studio wallpaper
+provider with macOS and clears any stale explicit registration before applying. For
+distribution to other people an Apple Development signature is not enough: use
+Developer ID and notarization, otherwise `WallpaperAgent` can refuse the extension even
+though the main app opens.
 
-## Generare
+## Building the package
 
 ```sh
 Tools/package_release.sh
 ```
 
-Scriptul verifică checksumul helperului, generează proiectul, construiește ambele
-arhitecturi, asamblează componentele, semnează bundle-urile, verifică semnătura,
-creează DMG-ul și scrie un checksum SHA-256.
+The script:
 
-## Distribuție publică
+1. checks the required tools (`curl`, `xcodegen`, `xcodebuild`, `codesign`, `hdiutil`,
+   `lipo`, `shasum`, `osascript`);
+2. downloads the pinned `yt-dlp_macos` release if missing and verifies its SHA-256;
+3. verifies the FFmpeg source archive checksum and embeds the helper, its license and
+   source;
+4. generates the Xcode project and builds `arm64` + `x86_64`;
+5. assembles and signs every bundle, then verifies the signatures;
+6. creates the DMG with its window layout and background, and writes
+   `<name>.dmg.sha256`.
 
-După instalarea certificatului Developer ID și configurarea unui profil notarytool:
+## Public distribution
+
+After installing the Developer ID certificate and creating a `notarytool` profile:
 
 ```sh
-SIGN_IDENTITY="Developer ID Application: Nume (TEAMID)" \
+SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" \
 NOTARY_PROFILE="wallpaper-studio-notary" \
 Tools/package_release.sh
 ```
 
-În acest mod scriptul folosește timestamp securizat, trimite DMG-ul la Apple,
-aplică ticketul de notarizare și îl validează.
+In this mode the script signs with a secure timestamp, submits the DMG to Apple,
+staples the notarization ticket and validates it.
 
-## QA realizat
+## Release checklist
 
-- toate cele 30 de teste Swift trec;
-- build Debug și Release universal reușit;
-- semnătura ad-hoc a aplicației și a componentelor este validă;
-- DMG verificat prin checksum-ul intern `hdiutil`;
-- executabilele aplicației, rendererului și Screen Saverului conțin ambele arhitecturi;
-- helperul YouTube inclus pornește și raportează versiunea corectă;
-- bundle-ul Screen Saver se încarcă și expune clasa principală corectă;
-- schema 1 este migrată automat la schema 2;
-- UUID-urile monitorului real au fost reconstruite și comparate cu selecția;
-- rendererul raportează exact monitoarele pe care a pornit, iar aplicația refuză
-  confirmarea dacă răspunsul diferă.
-- redarea Desktop se oprește împreună cu sunetul când o fereastră acoperă
-  monitorul și revine numai după ce desktopul devine din nou vizibil;
-- Screen Saver folosește o copie de redare optimizată pentru rezoluția monitorului,
-  cu decodare hardware și maximum 60 fps.
-
-Captura vizuală automată nu a putut fi efectuată deoarece macOS nu a acordat
-permisiunea Screen Recording procesului Codex. Aceasta nu afectează buildul sau
-funcționarea aplicației.
+- `swift test` passes (30 tests).
+- Debug and universal Release builds succeed for every target in the scheme.
+- `codesign --verify --deep --strict` succeeds for the app and all embedded bundles.
+- `lipo -archs` reports `arm64 x86_64` for the app, renderer, extension and Screen Saver
+  executables.
+- The embedded YouTube helper starts and reports the pinned version.
+- The Screen Saver bundle loads and exposes its principal class.
+- A schema 1 runtime configuration migrates to schema 2.
+- The renderer reports exactly the displays it started on; the app rejects the apply
+  if the answer differs from the request.
+- Desktop playback and audio stop on a covered display and resume when the desktop is
+  visible again.
+- Lock Screen: after `⌃⌘Q` the video plays under the native authentication UI; with
+  audio enabled, sound fades in once the picture reaches normal speed, plays without
+  dropouts across several loops, and stops immediately on unlock.
+- The DMG passes `hdiutil verify` and its SHA-256 matches the published checksum.

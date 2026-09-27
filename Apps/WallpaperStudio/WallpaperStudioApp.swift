@@ -15,17 +15,17 @@ struct WallpaperStudioApp: App {
         .defaultSize(width: 1360, height: 860)
         .commands {
             CommandGroup(after: .newItem) {
-                Button("Importă fișiere…") {
+                Button("Import Files…") {
                     model.chooseFiles()
                 }
                 .keyboardShortcut("o", modifiers: .command)
 
-                Button("Importă din YouTube…") {
+                Button("Import from YouTube…") {
                     model.isYouTubeSheetPresented = true
                 }
                 .keyboardShortcut("u", modifiers: [.command, .shift])
             }
-            CommandMenu("Vizualizare") {
+            CommandMenu("View") {
                 ForEach(Array(AppSection.allCases.enumerated()), id: \.element) { index, section in
                     Button(section.title) {
                         model.closeDetail()
@@ -35,7 +35,7 @@ struct WallpaperStudioApp: App {
                 }
             }
             CommandMenu("Wallpaper") {
-                Button("Blochează cu Wallpaper Studio") {
+                Button("Lock with Wallpaper Studio") {
                     Task { await model.lockNowWithWallpaperStudio() }
                 }
                 .keyboardShortcut("l", modifiers: [.command, .shift])
@@ -43,14 +43,14 @@ struct WallpaperStudioApp: App {
 
                 Divider()
 
-                Button(model.desktopEngine.isPaused ? "Reia redarea" : "Pauză") {
+                Button(model.desktopEngine.isPaused ? "Resume Playback" : "Pause") {
                     model.toggleDesktopPlayback()
                 }
                 .disabled(!model.desktopEngine.isRunning)
 
                 Divider()
 
-                Button("Aplică profilul") {
+                Button("Apply Profile") {
                     Task { await model.applyProfileAndInstallLockScreen() }
                 }
                 .keyboardShortcut(.return, modifiers: [.command])

@@ -11,7 +11,7 @@ archive="$work_directory/ffmpeg-$version.tar.xz"
 curl -fL --retry 3 "https://ffmpeg.org/releases/ffmpeg-$version.tar.xz" -o "$archive"
 actual_hash="$(shasum -a 256 "$archive" | awk '{print $1}')"
 [[ "$actual_hash" == "$archive_hash" ]] || {
-    echo "Checksum invalid pentru sursa FFmpeg." >&2
+    echo "Checksum mismatch for the FFmpeg source." >&2
     exit 1
 }
 

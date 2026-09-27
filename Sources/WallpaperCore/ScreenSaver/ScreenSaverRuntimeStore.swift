@@ -109,11 +109,11 @@ public enum ScreenSaverRuntimeError: Error, Equatable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .missingMedia:
-            "Conținutul pentru Screen Saver nu a fost găsit. Aplică din nou configurația."
+            "Screen Saver content wasn't found. Apply the configuration again."
         case let .unsupportedSchema(schema):
-            "Configurația Screen Saver nu este compatibilă (versiunea \(schema))."
+            "Incompatible Screen Saver configuration (version \(schema))."
         case .unsafeMediaPath:
-            "Calea conținutului Screen Saver nu este sigură."
+            "The Screen Saver content path isn't safe."
         }
     }
 }

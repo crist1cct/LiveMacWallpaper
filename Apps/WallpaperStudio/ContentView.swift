@@ -1,7 +1,7 @@
 import SwiftUI
 import WallpaperCore
 
-/// Root of the window: a dark full-bleed canvas, a floating Apple TV–style tab bar,
+/// Root of the window: a dark full-bleed canvas, a floating tab bar,
 /// the current page, and the wallpaper page presented over everything.
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
@@ -112,7 +112,7 @@ struct ContentView: View {
 
 // MARK: - Top bar
 
-/// Floating tab bar centered over the content, like the Apple TV app on macOS/tvOS.
+/// Floating tab bar centered over the content.
 private struct TopBar: View {
     @EnvironmentObject private var model: AppModel
     var isSearchFocused: FocusState<Bool>.Binding
@@ -160,13 +160,13 @@ private struct TopBar: View {
                 }
                 .buttonStyle(TVGlassButtonStyle(circle: true, height: 38))
                 .disabled(model.isApplying)
-                .help("Blochează ecranul cu wallpaperul tău (⇧⌘L)")
+                .help("Lock the screen with your wallpaper (⇧⌘L)")
 
                 Button { model.chooseFiles() } label: {
                     Image(systemName: "plus")
                 }
                 .buttonStyle(TVGlassButtonStyle(circle: true, height: 38))
-                .help("Adaugă imagini sau videoclipuri (⌘O)")
+                .help("Add images or videos (⌘O)")
             }
             .padding(.horizontal, 20)
             .padding(.top, 10)
@@ -216,7 +216,7 @@ private struct SearchField: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(TV.secondaryText)
-            TextField("Caută", text: $text)
+            TextField("Search", text: $text)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
                 .foregroundStyle(.white)
