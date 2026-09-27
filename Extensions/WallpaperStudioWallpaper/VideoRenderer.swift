@@ -56,6 +56,31 @@ final class VideoRenderer: @unchecked Sendable {
     private var ptsOffset: CMTime = .zero
     private var lastEnqueuedEnd: CMTime = .zero
 
+    /// Timebase positions (seconds) at which each loop of the clip begins. Written on
+    /// `queue`, read from any thread by the lock-screen audio clock. A loop start is
+    /// recorded when the NEXT loop is enqueued, i.e. slightly ahead of the display, so
+    /// readers pick the latest start that is not in the future.
+    private let loopClock = OSAllocatedUnfairLock(initialState: LoopClockState())
+
+    private struct LoopClockState: Sendable {
+        var starts: [Double] = [0]
+        /// Bumped whenever the timeline is rebuilt from scratch (new clip, error reset).
+        var generation = 0
+        var assetURL: URL?
+    }
+
+    /// A consistent reading of the video clock, used to slave audio to the picture.
+    struct ClockSample: Sendable {
+        /// Seconds into the clip that is on screen right now (0 ..< clip duration).
+        let loopPosition: Double
+        /// Current timebase rate — 0 while paused, easing between 0 and 1 during ramps.
+        let rate: Double
+        /// Changes when the timeline restarts from 0 (switch, recovery).
+        let generation: Int
+        /// File the renderer is decoding (may be a lower-frame-rate variant).
+        let assetURL: URL
+    }
+
     /// Called at each loop boundary to select the video URL for the next iteration.
     var variantSelector: (@Sendable () -> URL)?
 
@@ -203,6 +228,7 @@ final class VideoRenderer: @unchecked Sendable {
             currentOutput = output
             ptsOffset = .zero
             lastEnqueuedEnd = .zero
+            resetLoopClock()
 
             // Begin advancing the timebase — playback starts.
             CMTimebaseSetRate(timebase, rate: 1.0)
@@ -321,6 +347,52 @@ final class VideoRenderer: @unchecked Sendable {
 
     var playbackTimeSeconds: Double {
         CMTimebaseGetTime(timebase).seconds
+    }
+
+    /// Where in the clip the displayed picture is, independent of how many times it
+    /// has looped. Safe from any thread.
+    func clockSample() -> ClockSample? {
+        let now = CMTimebaseGetTime(timebase).seconds
+        guard now.isFinite else { return nil }
+        let rate = CMTimebaseGetRate(timebase)
+        return loopClock.withLock { state in
+            guard let url = state.assetURL else { return nil }
+            let start = state.starts.last(where: { $0 <= now + 0.0005 }) ?? state.starts.first ?? 0
+            return ClockSample(
+                loopPosition: max(0, now - start),
+                rate: rate.isFinite ? rate : 0,
+                generation: state.generation,
+                assetURL: url
+            )
+        }
+    }
+
+    /// Loop start in effect at `time` (timebase seconds).
+    private func loopStartSeconds(at time: Double) -> Double {
+        loopClock.withLock { state in
+            state.starts.last(where: { $0 <= time + 0.0005 }) ?? state.starts.first ?? 0
+        }
+    }
+
+    /// New timeline beginning at `start` seconds. Must run on `queue`.
+    private func resetLoopClock(start: Double = 0, newTimeline: Bool = true) {
+        let url = asset.url
+        loopClock.withLock { state in
+            state.starts = [start]
+            state.assetURL = url
+            if newTimeline { state.generation &+= 1 }
+        }
+    }
+
+    /// The next loop begins at `start` seconds on the same timeline. Must run on `queue`.
+    private func recordLoopStart(_ start: Double) {
+        let url = asset.url
+        loopClock.withLock { state in
+            if let last = state.starts.last, start <= last { return }
+            state.starts.append(start)
+            if state.starts.count > 4 { state.starts.removeFirst(state.starts.count - 4) }
+            state.assetURL = url
+        }
     }
 
 
@@ -535,6 +607,14 @@ final class VideoRenderer: @unchecked Sendable {
 
         let resumeTime = CMTimebaseGetTime(timebase)
         let continuing = seamlessResume && resumeTime.isNumeric && resumeTime > .zero
+        // The timebase keeps counting across loops, so the paused spot INSIDE the clip is
+        // the timebase position minus the start of the loop that was on screen. Reading
+        // from the raw timebase position overshot the clip after the first loop, the
+        // reader came back empty and playback (and its audio) jumped to the clip start.
+        let loopStart = continuing
+            ? CMTime(seconds: loopStartSeconds(at: resumeTime.seconds), preferredTimescale: resumeTime.timescale)
+            : .zero
+        let clipPosition = continuing ? CMTimeMaximum(.zero, CMTimeSubtract(resumeTime, loopStart)) : .zero
         // Keep the last displayed frame when continuing (no black); clear it on error reset.
         renderer.flush(removingDisplayedImage: !continuing)
 
@@ -547,7 +627,7 @@ final class VideoRenderer: @unchecked Sendable {
         if continuing {
             // Resume reading from the paused position (AVAssetReader seeks to the enclosing
             // keyframe and emits from here) so playback continues instead of restarting.
-            reader.timeRange = CMTimeRange(start: resumeTime, duration: .positiveInfinity)
+            reader.timeRange = CMTimeRange(start: clipPosition, duration: .positiveInfinity)
         }
         let output = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: nil)
         output.alwaysCopiesSampleData = false
@@ -556,23 +636,29 @@ final class VideoRenderer: @unchecked Sendable {
         currentReader = reader
         currentOutput = output
 
-        ptsOffset = .zero
+        // Samples keep their place on the running timeline: clip time + loop start.
+        ptsOffset = loopStart
         lastEnqueuedEnd = continuing ? resumeTime : .zero
-        if !continuing {
+        if continuing {
+            resetLoopClock(start: loopStart.seconds, newTimeline: false)
+        } else {
             CMTimebaseSetTime(timebase, time: .zero)
+            resetLoopClock()
         }
 
         // Enqueue the first frame tagged DisplayImmediately so it replaces the held frame the
         // instant it decodes — seamless when continuing, and no wait-on-timebase on reset.
-        if let first = output.copyNextSampleBuffer() {
+        if let raw = output.copyNextSampleBuffer() {
+            let first = offsetTimingForLoop(raw)
             Self.setDisplayImmediately(first)
             renderer.enqueue(first)
             let pts = CMSampleBufferGetPresentationTimeStamp(first)
             let dur = CMSampleBufferGetDuration(first)
             if pts.isValid {
-                lastEnqueuedEnd = dur.isValid && dur > .zero
+                let end = dur.isValid && dur > .zero
                     ? CMTimeAdd(pts, dur)
                     : CMTimeAdd(pts, CMTime(value: 1, timescale: 60))
+                lastEnqueuedEnd = CMTimeMaximum(lastEnqueuedEnd, end)
             }
         }
 
@@ -646,6 +732,7 @@ final class VideoRenderer: @unchecked Sendable {
                 ptsOffset = .zero
                 lastEnqueuedEnd = .zero
                 CMTimebaseSetTime(timebase, time: .zero)
+                resetLoopClock()
 
                 // Enqueue the first (IDR) frame while the clock is still frozen, exactly
                 // like start(), so it isn't dropped as late. Tag it DisplayImmediately so
@@ -716,6 +803,7 @@ final class VideoRenderer: @unchecked Sendable {
 
         // Advance offset so the next loop's DTS/PTS continue the timeline.
         ptsOffset = lastEnqueuedEnd
+        recordLoopStart(ptsOffset.seconds)
 
         if let nr = nextReader, let no = nextOutput {
             if let nrAsset = nr.asset as? AVURLAsset, nrAsset.url != asset.url {

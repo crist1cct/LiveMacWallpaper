@@ -1,146 +1,241 @@
 import SwiftUI
+import WallpaperCore
 
+/// Root of the window: a dark full-bleed canvas, a floating Apple TV–style tab bar,
+/// the current page, and the wallpaper page presented over everything.
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
+    @FocusState private var isSearchFocused: Bool
 
     var body: some View {
-        NavigationSplitView {
-            VStack(spacing: 0) {
-                HStack(spacing: 11) {
-                    Image(systemName: "play.display")
-                        .font(.system(size: 19, weight: .semibold))
-                        .frame(width: 38, height: 38)
-                        .foregroundStyle(.white)
-                        .background(.black, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("Wallpaper Studio")
-                            .font(.headline)
-                        Text("Desktop · Lock Screen")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 14)
-                .padding(.top, 14)
-                .padding(.bottom, 12)
+        ZStack(alignment: .top) {
+            TV.canvas.ignoresSafeArea()
 
-                List(AppSection.allCases, selection: $model.selectedSection) { section in
-                    HStack(spacing: 11) {
-                        Image(systemName: section.symbol)
-                            .font(.system(size: 15, weight: .medium))
-                            .frame(width: 24)
-                        Text(section.title)
-                            .font(.callout.weight(.medium))
-                    }
-                    .padding(.vertical, 4)
-                    .tag(section)
-                }
-                .listStyle(.sidebar)
+            page
+                .id(model.selectedSection)
+                .transition(.opacity)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Label(
-                        model.loginWallpaperStatus.isReady ? "Lock Screen pregătit" : "Configurare necesară",
-                        systemImage: model.loginWallpaperStatus.isReady ? "checkmark.circle" : "circle.dashed"
-                    )
-                    Label(
-                        model.displays.count == 1 ? "1 ecran conectat" : "\(model.displays.count) ecrane conectate",
-                        systemImage: "display"
-                    )
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.ultraThinMaterial)
+            if model.detailMediaItem == nil {
+                TopBar(isSearchFocused: $isSearchFocused)
+                    .transition(.opacity)
             }
-            .navigationSplitViewColumnWidth(min: 210, ideal: 230, max: 270)
-        } detail: {
-            Group {
-                switch model.selectedSection ?? .library {
-                case .library:
-                    LibraryView()
-                case .settings:
-                    SettingsView()
-                }
+
+            if let item = model.detailMediaItem {
+                MediaDetailView(item: item)
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .scale(scale: 1.02)),
+                        removal: .opacity
+                    ))
+                    .zIndex(10)
             }
-            .overlay(alignment: .top) {
-                messageOverlay
-            }
+
+            notifications
+                .zIndex(20)
         }
-        .navigationSplitViewStyle(.balanced)
+        .animation(TV.pageSpring, value: model.selectedSection)
+        .animation(TV.pageSpring, value: model.detailMediaID)
+        .preferredColorScheme(.dark)
+        .tint(.white)
         .sheet(isPresented: $model.isYouTubeSheetPresented) {
             YouTubeImportView()
                 .environmentObject(model)
         }
-        .toolbar {
-            ToolbarItemGroup {
-                if model.isApplying {
-                    ProgressView()
-                        .controlSize(.small)
-                }
-                Button {
-                    Task { await model.lockNowWithWallpaperStudio() }
-                } label: {
-                    Label("Blochează", systemImage: "lock.display")
-                }
-                .help("Blochează cu fundalul Wallpaper Studio")
-                .disabled(model.isApplying)
-            }
+        .dropDestination(for: URL.self) { urls, _ in
+            let files = urls.filter(\.isFileURL)
+            guard !files.isEmpty else { return false }
+            model.importFiles(files)
+            return true
         }
-        .tint(.primary)
+        .background {
+            // ⌘F jumps to search from anywhere.
+            Button("") {
+                model.closeDetail()
+                isSearchFocused = true
+            }
+            .keyboardShortcut("f", modifiers: .command)
+            .opacity(0)
+        }
+        .task(id: model.successMessage) {
+            guard model.successMessage != nil else { return }
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.3)) { model.successMessage = nil }
+        }
     }
 
     @ViewBuilder
-    private var messageOverlay: some View {
-        if let message = model.bannerMessage {
-            StatusBanner(message: message, style: .error) {
-                model.dismissMessages()
+    private var page: some View {
+        switch model.selectedSection {
+        case .home:
+            if model.isLoading {
+                ProgressView().tint(.white).frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if model.mediaItems.isEmpty {
+                EmptyLibraryView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                HomeView()
             }
-            .padding()
-            .transition(.move(edge: .top).combined(with: .opacity))
-        } else if let message = model.successMessage {
-            StatusBanner(message: message, style: .success) {
-                model.dismissMessages()
-            }
-            .padding()
-            .transition(.move(edge: .top).combined(with: .opacity))
+        case .library:
+            LibraryView()
+        case .settings:
+            SettingsView()
         }
+    }
+
+    private var notifications: some View {
+        VStack(spacing: 10) {
+            Spacer()
+            ForEach(model.importJobs) { job in
+                TVToast(
+                    message: "\(job.title) — \(job.status)",
+                    style: job.isFailed ? .error : .progress,
+                    dismiss: job.isFailed ? { model.dismissImportJob(job.id) } : nil
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+            if let message = model.bannerMessage {
+                TVToast(message: message, style: .error) { model.dismissMessages() }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else if let message = model.successMessage {
+                TVToast(message: message, style: .success) { model.dismissMessages() }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .padding(.bottom, 26)
+        .padding(.horizontal, 24)
+        .frame(maxWidth: .infinity)
+        .animation(TV.pageSpring, value: model.importJobs.map(\.id))
+        .animation(TV.pageSpring, value: model.bannerMessage)
+        .animation(TV.pageSpring, value: model.successMessage)
+        .allowsHitTesting(!model.importJobs.isEmpty || model.bannerMessage != nil || model.successMessage != nil)
     }
 }
 
-private struct StatusBanner: View {
-    enum Style {
-        case error
-        case success
-    }
+// MARK: - Top bar
 
-    let message: String
-    let style: Style
-    let dismiss: () -> Void
+/// Floating tab bar centered over the content, like the Apple TV app on macOS/tvOS.
+private struct TopBar: View {
+    @EnvironmentObject private var model: AppModel
+    var isSearchFocused: FocusState<Bool>.Binding
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: style == .error ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                .foregroundStyle(.primary)
-            Text(message)
-                .font(.callout)
-                .lineLimit(3)
-            Spacer(minLength: 16)
-            Button(action: dismiss) {
-                Image(systemName: "xmark")
+        ZStack {
+            // Keeps the bar legible over bright artwork without a hard edge.
+            LinearGradient(colors: [.black.opacity(0.55), .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: 110)
+                .frame(maxHeight: .infinity, alignment: .top)
+                .allowsHitTesting(false)
+
+            // Empty strip behind the controls moves the window (the title bar is hidden).
+            Color.clear
+                .frame(height: 58)
+                .frame(maxHeight: .infinity, alignment: .top)
+                .contentShape(Rectangle())
+                .gesture(WindowDragGesture())
+
+            HStack(spacing: 14) {
+                Spacer().frame(width: 64) // traffic lights
+
+                Spacer(minLength: 0)
+
+                HStack(spacing: 2) {
+                    ForEach(AppSection.allCases) { section in
+                        TabItem(section: section, isSelected: model.selectedSection == section) {
+                            model.selectedSection = section
+                        }
+                    }
+                }
+                .padding(4)
+                .tvGlassCapsule()
+
+                Spacer(minLength: 0)
+
+                SearchField(text: $model.searchText, isFocused: isSearchFocused) {
+                    if model.selectedSection != .library { model.selectedSection = .library }
+                }
+
+                Button {
+                    Task { await model.lockNowWithWallpaperStudio() }
+                } label: {
+                    Image(systemName: "lock.fill")
+                }
+                .buttonStyle(TVGlassButtonStyle(circle: true, height: 38))
+                .disabled(model.isApplying)
+                .help("Blochează ecranul cu wallpaperul tău (⇧⌘L)")
+
+                Button { model.chooseFiles() } label: {
+                    Image(systemName: "plus")
+                }
+                .buttonStyle(TVGlassButtonStyle(circle: true, height: 38))
+                .help("Adaugă imagini sau videoclipuri (⌘O)")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Închide mesajul")
+            .padding(.horizontal, 20)
+            .padding(.top, 10)
+            .frame(maxHeight: .infinity, alignment: .top)
+        }
+        .frame(height: 64, alignment: .top)
+        .ignoresSafeArea(edges: .top)
+    }
+}
+
+private struct TabItem: View {
+    let section: AppSection
+    let isSelected: Bool
+    let action: () -> Void
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Text(section.title)
+                .font(.system(size: 13.5, weight: .semibold))
+                .foregroundStyle(isSelected ? .black : (isHovering ? .white : TV.secondaryText))
+                .padding(.horizontal, 18)
+                .frame(height: 32)
+                .background {
+                    if isSelected {
+                        Capsule().fill(.white)
+                    } else if isHovering {
+                        Capsule().fill(Color.white.opacity(0.1))
+                    }
+                }
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .animation(.snappy(duration: 0.22), value: isSelected)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+private struct SearchField: View {
+    @Binding var text: String
+    var isFocused: FocusState<Bool>.Binding
+    let didStartTyping: () -> Void
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(TV.secondaryText)
+            TextField("Caută", text: $text)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .foregroundStyle(.white)
+                .focused(isFocused)
+                .onChange(of: text) { _, new in
+                    if !new.isEmpty { didStartTyping() }
+                }
+                .onSubmit(didStartTyping)
+            if !text.isEmpty {
+                Button { text = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(TVQuietButtonStyle())
+            }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(.separator.opacity(0.6))
-        }
-        .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
-        .frame(maxWidth: 620)
+        .frame(width: isFocused.wrappedValue || !text.isEmpty ? 220 : 150, height: 38)
+        .tvGlassCapsule()
+        .animation(TV.focusSpring, value: isFocused.wrappedValue)
     }
 }
