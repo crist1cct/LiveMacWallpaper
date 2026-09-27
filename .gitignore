@@ -1,0 +1,10 @@
+.DS_Store
+/.build
+/.swiftpm
+/DerivedData
+/DerivedData-*
+/build
+/WallpaperStudio.xcodeproj
+/Vendor/yt-dlp_macos
+*.xcuserstate
+xcuserdata/
