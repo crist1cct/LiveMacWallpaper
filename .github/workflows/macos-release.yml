@@ -1,0 +1,140 @@
+name: macOS DMG
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      notarize:
+        description: Sign with Developer ID and notarize (requires Apple secrets)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: macos-dmg-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.0.1.app/Contents/Developer
+      DMG_LAYOUT: plain
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Check release version
+        id: metadata
+        shell: bash
+        run: |
+          source Tools/release_metadata.sh
+          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo 'The release tag must match MARKETING_VERSION in project.yml.' >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare Xcode and XcodeGen
+        run: |
+          xcodebuild -version
+          xcrun swift --version
+          brew install xcodegen
+
+      - name: Test WallpaperCore
+        run: |
+          mkdir -p build
+          swift test 2>&1 | tee build/tests.log
+
+      - name: Configure Developer ID signing
+        if: ${{ startsWith(github.ref, 'refs/tags/') || inputs.notarize == true }}
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for name in MACOS_CERTIFICATE_P12 MACOS_CERTIFICATE_PASSWORD MACOS_SIGN_IDENTITY APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            if [[ -z "${!name}" ]]; then
+              echo "Missing repository secret: $name" >&2
+              exit 1
+            fi
+          done
+          [[ "$MACOS_SIGN_IDENTITY" == 'Developer ID Application:'* ]]
+          certificate="$RUNNER_TEMP/wallpaper-studio.p12"
+          keychain="$RUNNER_TEMP/wallpaper-studio.keychain-db"
+          keychain_password="$(openssl rand -hex 32)"
+          echo "::add-mask::$keychain_password"
+          printf '%s' "$MACOS_CERTIFICATE_P12" | base64 --decode > "$certificate"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$certificate" -P "$MACOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -k "$keychain_password" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" "$HOME/Library/Keychains/login.keychain-db"
+          xcrun notarytool store-credentials wallpaper-studio-ci \
+            --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" --keychain "$keychain"
+          echo "SIGN_IDENTITY=$MACOS_SIGN_IDENTITY" >> "$GITHUB_ENV"
+          echo 'NOTARY_PROFILE=wallpaper-studio-ci' >> "$GITHUB_ENV"
+          echo "NOTARY_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
+          echo 'REQUIRE_NOTARIZATION=true' >> "$GITHUB_ENV"
+
+      - name: Build and verify universal DMG
+        run: bash Tools/package_release.sh 2>&1 | tee build/package.log
+
+      - name: Verify packaged contents
+        env:
+          VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          cd build
+          shasum -a 256 -c "Wallpaper-Studio-$VERSION.dmg.sha256"
+          volume="$RUNNER_TEMP/wallpaper-studio-verify"
+          mkdir -p "$volume"
+          hdiutil attach -readonly -nobrowse -mountpoint "$volume" "Wallpaper-Studio-$VERSION.dmg"
+          trap 'hdiutil detach "$volume"' EXIT
+          test -L "$volume/Applications"
+          test -f "$volume/INSTALL.txt"
+          codesign --verify --deep --strict "$volume/Wallpaper Studio.app"
+          "$volume/Wallpaper Studio.app/Contents/Resources/Helpers/yt-dlp_macos" --version
+          "$volume/Wallpaper Studio.app/Contents/Resources/Helpers/ffmpeg" -version
+
+      - name: Upload DMG and checksum
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Wallpaper-Studio-${{ steps.metadata.outputs.version }}-${{ (startsWith(github.ref, 'refs/tags/') || inputs.notarize == true) && 'notarized' || 'test' }}
+          path: |
+            build/*.dmg
+            build/*.dmg.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+      - name: Upload build logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: macOS-build-logs
+          path: build/*.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Remove signing credentials
+        if: ${{ always() && (startsWith(github.ref, 'refs/tags/') || inputs.notarize == true) }}
+        run: |
+          security delete-keychain "$RUNNER_TEMP/wallpaper-studio.keychain-db" || true
+          rm -f "$RUNNER_TEMP/wallpaper-studio.p12"

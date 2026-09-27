@@ -1,9 +1,20 @@
-#!/bin/zsh
+#!/bin/bash
 set -euo pipefail
 
-project_root="$(cd "$(dirname "$0")/.." && pwd)"
-version="9.0.1"
-archive_hash="cf38e0e28c7e5605942c4a77755349b0145804a397af37eb1fb4c77cb237f635"
+script_directory="$(cd "$(dirname "$0")" && pwd)"
+project_root="$(cd "$script_directory/.." && pwd)"
+if [[ -f "$script_directory/dependencies.env" ]]; then
+    source "$script_directory/dependencies.env"
+else
+    source "$project_root/Vendor/dependencies.env"
+fi
+[[ "$(uname -s)" == Darwin ]] || { echo "FFmpeg builds require macOS." >&2; exit 1; }
+# Set FFMPEG_OUTPUT_DIR when rebuilding from the sources included inside the app.
+output_directory="${FFMPEG_OUTPUT_DIR:-$project_root/Vendor}"
+mkdir -p "$output_directory"
+output_directory="$(cd "$output_directory" && pwd)"
+version="$FFMPEG_VERSION"
+archive_hash="$FFMPEG_SOURCE_SHA256"
 work_directory="$(mktemp -d /tmp/WallpaperStudioFFmpeg.XXXXXX)"
 trap 'rm -rf "$work_directory"' EXIT
 
@@ -24,8 +35,11 @@ build_architecture() {
     local cross_flags=()
     mkdir -p "$build_directory"
 
-    if [[ "$architecture" == "x86_64" && "$(uname -m)" != "x86_64" ]]; then
-        cross_flags+=(--enable-cross-compile --disable-x86asm)
+    if [[ "$architecture" != "$(uname -m)" ]]; then
+        cross_flags+=(--enable-cross-compile)
+    fi
+    if [[ "$architecture" == "x86_64" ]]; then
+        cross_flags+=(--disable-x86asm)
     fi
 
     cd "$build_directory"
@@ -67,9 +81,11 @@ build_architecture x86_64
 lipo -create \
     "$work_directory/build-arm64/ffmpeg" \
     "$work_directory/build-x86_64/ffmpeg" \
-    -output "$project_root/Vendor/ffmpeg"
-chmod 755 "$project_root/Vendor/ffmpeg"
-ditto "$source_directory/COPYING.LGPLv2.1" "$project_root/Vendor/FFmpeg-LGPL-2.1.txt"
+    -output "$output_directory/ffmpeg"
+chmod 755 "$output_directory/ffmpeg"
+ditto "$source_directory/COPYING.LGPLv2.1" "$output_directory/FFmpeg-LGPL-2.1.txt"
 
-file "$project_root/Vendor/ffmpeg"
-"$project_root/Vendor/ffmpeg" -version | head -1
+file "$output_directory/ffmpeg"
+"$output_directory/ffmpeg" -version
+shasum -a 256 "$output_directory/ffmpeg"
+echo "For a dependency update, review the rebuild and update FFMPEG_BINARY_SHA256 in Vendor/dependencies.env."

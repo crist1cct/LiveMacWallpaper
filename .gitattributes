@@ -1,0 +1,9 @@
+* text=auto
+*.sh text eol=lf
+*.yml text eol=lf
+*.env text eol=lf
+*.md text eol=lf
+*.plist text eol=lf
+*.entitlements text eol=lf
+/Vendor/ffmpeg binary
+*.png binary
