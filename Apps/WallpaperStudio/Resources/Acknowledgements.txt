@@ -1,0 +1,17 @@
+Wallpaper Studio uses yt-dlp for the optional YouTube import feature.
+yt-dlp is released into the public domain under The Unlicense.
+Project: https://github.com/yt-dlp/yt-dlp
+
+Wallpaper Studio uses a minimal FFmpeg helper for media formats that Apple
+AVFoundation cannot prepare. FFmpeg is licensed under LGPL 2.1 or later in
+this build. Project and corresponding source: https://ffmpeg.org/
+The complete license text, corresponding source archive, and reproducible build
+script are included with the distributed application/project.
+
+The native macOS wallpaper extension includes adapted portions of Phosphene,
+copyright (c) 2026 kageroumado, licensed under the MIT License.
+Project: https://github.com/kageroumado/phosphene
+The complete license text is included in Vendor/Phosphene-MIT.txt.
+
+YouTube import is intended only for downloads authorized by YouTube or covered by
+the written permissions required by YouTube and the applicable rightsholders.
