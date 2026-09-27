@@ -187,12 +187,14 @@ a destination.
 
 ## Building
 
-Requirements: Xcode 26, XcodeGen.
+Requirements: a Mac with full Xcode 26 or newer selected (Command Line Tools alone
+are not enough), and XcodeGen. Windows/Linux can edit the sources; use the
+**macOS DMG** GitHub Actions workflow to compile them on a Mac runner.
 
 ```sh
 brew install xcodegen
 xcodegen generate
-xcodebuild -project WallpaperStudio.xcodeproj -scheme WallpaperStudio build
+xcodebuild -project WallpaperStudio.xcodeproj -scheme WallpaperStudio CODE_SIGNING_ALLOWED=NO build
 ```
 
 The wallpaper extension must be run from a signed app in `/Applications`; macOS
@@ -217,9 +219,16 @@ Lock Screen store inspector.
 Tools/package_release.sh
 ```
 
-The script verifies the pinned helper checksums, generates the project, builds both
-architectures, assembles and signs the bundles, verifies the signatures, builds the
-DMG and writes a SHA-256 checksum next to it.
+The script reads version **1.7.0 / build 170** from `project.yml`, verifies the pinned
+helper checksums, builds both architectures, assembles and signs the bundles, and
+verifies the DMG. Outputs: `build/Wallpaper-Studio-1.7.0.dmg` and `.dmg.sha256`.
+The default is an **ad-hoc signed test build**, without Apple notarization.
+
+On GitHub, open **Actions → macOS DMG → Run workflow** (after this workflow has been
+merged into `main`). Leave `notarize` unchecked for a test build and download the DMG
+from the successful run's **Artifacts** section. Pull requests and pushes to `main`
+also build and test automatically. CI uses a plain DMG with the app, an Applications
+shortcut and installation instructions; a local build uses the existing Finder layout.
 
 Signed and notarized build:
 
@@ -229,8 +238,9 @@ NOTARY_PROFILE="wallpaper-studio-notary" \
 Tools/package_release.sh
 ```
 
-In this mode the script uses a secure timestamp, submits the DMG with `notarytool`,
-staples the ticket and validates it. See [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md).
+In this mode the script uses a secure timestamp, notarizes and staples both the app
+and DMG, and validates them with Gatekeeper. See
+[docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) for local setup and GitHub secrets.
 
 ## Limitations
 
