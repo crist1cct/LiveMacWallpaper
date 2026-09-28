@@ -86,7 +86,7 @@ public enum LockScreenIntegrationError: Error, Equatable, LocalizedError {
         case .verificationFailed:
             "macOS did not retain the new Lock Screen configuration. The backup was restored."
         case .noBackup:
-            "There is no Wallpaper Studio Lock Screen backup to restore."
+            "There is no Live Mac Wallpaper Lock Screen backup to restore."
         case .damagedBackup:
             "The Lock Screen backup failed its integrity check."
         }
@@ -448,14 +448,14 @@ public struct LockScreenExperimentalService: @unchecked Sendable {
 
         categories.append([
             "id": Self.categoryID,
-            "localizedNameKey": "Wallpaper Studio",
+            "localizedNameKey": "Live Mac Wallpaper",
             "localizedDescriptionKey": "Personal Lock Screen videos",
             "preferredOrder": 999,
             "representativeAssetID": assetID,
             "previewImage": previewURL.absoluteString,
             "subcategories": [[
                 "id": Self.subcategoryID,
-                "localizedNameKey": "Wallpaper Studio",
+                "localizedNameKey": "Live Mac Wallpaper",
                 "localizedDescriptionKey": "Personal Lock Screen videos",
                 "preferredOrder": 0,
                 "previewImage": previewURL.absoluteString,
@@ -467,7 +467,7 @@ public struct LockScreenExperimentalService: @unchecked Sendable {
             "id": assetID,
             "localizedNameKey": title,
             "accessibilityLabel": title,
-            "shotID": "WALLPAPER_STUDIO_CUSTOM",
+            "shotID": "LMW_CUSTOM",
             "showInTopLevel": true,
             "includeInShuffle": false,
             "preferredOrder": 0,
@@ -475,7 +475,7 @@ public struct LockScreenExperimentalService: @unchecked Sendable {
             "subcategories": [Self.subcategoryID],
             "url-4K-SDR-240FPS": videoURL.absoluteString,
             "previewImage": previewURL.absoluteString,
-            "pointsOfInterest": ["0": "WALLPAPER_STUDIO_0"]
+            "pointsOfInterest": ["0": "LMW_0"]
         ])
 
         root["categories"] = categories

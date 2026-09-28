@@ -154,7 +154,7 @@ private struct TopBar: View {
                 }
 
                 Button {
-                    Task { await model.lockNowWithWallpaperStudio() }
+                    Task { await model.lockNowWithLiveMacWallpaper() }
                 } label: {
                     Image(systemName: "lock.fill")
                 }

@@ -59,7 +59,7 @@ struct SettingsView: View {
                         SettingsDivider()
                         SettingsRow(symbol: "lock.display", title: "Test Now", detail: "Lock the screen to see the result (⇧⌘L).") {
                             Button("Lock") {
-                                Task { await model.lockNowWithWallpaperStudio() }
+                                Task { await model.lockNowWithLiveMacWallpaper() }
                             }
                             .buttonStyle(TVGlassButtonStyle(height: 34))
                             .disabled(model.isApplying)

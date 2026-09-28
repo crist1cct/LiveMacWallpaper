@@ -12,7 +12,7 @@ import os
 final class ShuffleController: @unchecked Sendable {
     static let shared = ShuffleController()
 
-    private let queue = DispatchQueue(label: "com.wallpaperstudio.wallpaper.shuffle")
+    private let queue = DispatchQueue(label: "com.livemacwallpaper.wallpaper.shuffle")
     private let lock = OSAllocatedUnfairLock(initialState: State())
     private var timer: (any DispatchSourceTimer)?
 
@@ -244,7 +244,7 @@ final class ShuffleController: @unchecked Sendable {
         // switchVideo restarts the pipeline running; immediately re-assert the
         // current policy so a paused surface (alwaysPauseDesktop, occlusion, …)
         // pauses again instead of playing through.
-        WallpaperStudioWallpaperExtension.recomputeAndApplyPolicy()
+        LiveMacWallpaperExtension.recomputeAndApplyPolicy()
 
         WallpaperState.shared.currentVideoID = next
         WallpaperPrefs.shared.updateCurrentVideo()

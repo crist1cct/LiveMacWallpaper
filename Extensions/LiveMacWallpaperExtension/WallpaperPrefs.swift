@@ -4,7 +4,7 @@ import os
 /// Extension-side reader for shared preferences written by the main app,
 /// and writer for extension state (isActive) read by the app.
 ///
-/// Thread-safe via `OSAllocatedUnfairLock`. Observes `com.wallpaperstudio.wallpaper.prefsChanged`
+/// Thread-safe via `OSAllocatedUnfairLock`. Observes `com.livemacwallpaper.wallpaper.prefsChanged`
 /// Darwin notification to reload when the app writes new values.
 final class WallpaperPrefs: @unchecked Sendable {
     static let shared = WallpaperPrefs()
@@ -57,11 +57,11 @@ final class WallpaperPrefs: @unchecked Sendable {
     }
 
     private static var prefsURL: URL {
-        docsURL.appendingPathComponent("wallpaperstudio-prefs.json")
+        docsURL.appendingPathComponent("livemacwallpaper-prefs.json")
     }
 
     private static var stateURL: URL {
-        docsURL.appendingPathComponent("wallpaperstudio-state.json")
+        docsURL.appendingPathComponent("livemacwallpaper-state.json")
     }
 
     private init() {
@@ -200,7 +200,7 @@ final class WallpaperPrefs: @unchecked Sendable {
                 WallpaperPrefs.shared.reload()
                 WallpaperPrefs.shared.applyPauseState()
             },
-            "com.wallpaperstudio.wallpaper.prefsChanged" as CFString,
+            "com.livemacwallpaper.wallpaper.prefsChanged" as CFString,
             nil,
             .deliverImmediately,
         )
@@ -215,7 +215,7 @@ final class WallpaperPrefs: @unchecked Sendable {
         CFNotificationCenterRemoveObserver(
             center,
             observer,
-            CFNotificationName("com.wallpaperstudio.wallpaper.prefsChanged" as CFString),
+            CFNotificationName("com.livemacwallpaper.wallpaper.prefsChanged" as CFString),
             nil,
         )
     }
@@ -309,7 +309,7 @@ final class WallpaperPrefs: @unchecked Sendable {
         let center = CFNotificationCenterGetDarwinNotifyCenter()
         CFNotificationCenterPostNotification(
             center,
-            CFNotificationName("com.wallpaperstudio.wallpaper.stateChanged" as CFString),
+            CFNotificationName("com.livemacwallpaper.wallpaper.stateChanged" as CFString),
             nil,
             nil,
             true,

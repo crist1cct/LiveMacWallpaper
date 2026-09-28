@@ -1,4 +1,4 @@
-# Wallpaper Studio
+# Live Mac Wallpaper (LMW)
 
 Native macOS app that keeps a local library of images and videos and applies them
 independently to the **Desktop**, the **Screen Saver** and the **Lock Screen**, per
@@ -7,6 +7,7 @@ display. Written in Swift 6 with SwiftUI, AppKit, AVFoundation and ExtensionKit.
 | | |
 |---|---|
 | Version | 1.7.0 (build 170) |
+| Bundle identifier | `com.livemacwallpaper.app` |
 | Requires | macOS 15 Sequoia or later (Lock Screen video: macOS 26 Tahoe or later) |
 | Architectures | Universal: `arm64` and `x86_64` |
 | Distribution | Developer ID, Hardened Runtime, notarized DMG (not Mac App Store) |
@@ -38,22 +39,22 @@ the `WallpaperCore` Swift package.
 
 | Target | Type | Role |
 |---|---|---|
-| `WallpaperStudio` | app | UI, library management, import, configuration and apply |
+| `LiveMacWallpaper` | app | UI, library management, import, configuration and apply |
 | `WallpaperCore` | Swift package | domain model, media pipeline, persistence, Desktop engines, YouTube import, Lock Screen store inspection |
 | `WallpaperRenderer` | login item app | keeps the Desktop video running after login and without the main app |
-| `WallpaperStudioWallpaperExtension` | ExtensionKit extension (macOS 26) | Lock Screen / wallpaper provider rendered inside `WallpaperAgent` |
-| `WallpaperStudioScreenSaver` | `.saver` bundle | `ScreenSaverView` player |
+| `LiveMacWallpaperExtension` | ExtensionKit extension (macOS 26) | Lock Screen / wallpaper provider rendered inside `WallpaperAgent` |
+| `LiveMacWallpaperScreenSaver` | `.saver` bundle | `ScreenSaverView` player |
 | `LoginWallpaperInstaller` | command-line tool | privileged helper that removes Login Window integrations installed by older versions |
 
 ```
 Apps/
-  WallpaperStudio/           SwiftUI app
+  LiveMacWallpaper/            SwiftUI app
   WallpaperRenderer/         Desktop login item
   LoginWallpaperInstaller/   privileged cleanup tool
   LoginWallpaperRenderer/    legacy Login Window renderer (not built)
 Extensions/
-  WallpaperStudioWallpaper/  macOS 26 wallpaper extension (Lock Screen)
-  WallpaperStudioScreenSaver/
+  LiveMacWallpaperExtension/   macOS 26 wallpaper extension (Lock Screen)
+  LiveMacWallpaperScreenSaver/
 Sources/WallpaperCore/       shared package
 Tests/WallpaperCoreTests/    Swift Testing suite
 Tools/                       packaging, FFmpeg helper build, icon generation
@@ -78,7 +79,7 @@ Vendor/                      pinned third-party helpers and licenses
 
 - `ScreenSaverView` subclass with an `AVPlayerLayer`, always muted.
 - Configuration and media are written to a sandbox-compatible runtime store in
-  `/Users/Shared/Wallpaper Studio` and verified after writing, because the screen
+  `/Users/Shared/Live Mac Wallpaper` and verified after writing, because the screen
   saver host can't read the app's container.
 - On apply, the app creates a playback copy matched to the target display
   (1080p or 4K, at most 60 fps, HEVC/H.264). The library original is not touched and
@@ -192,7 +193,7 @@ Requirements: Xcode 26, XcodeGen.
 ```sh
 brew install xcodegen
 xcodegen generate
-xcodebuild -project WallpaperStudio.xcodeproj -scheme WallpaperStudio build
+xcodebuild -project LiveMacWallpaper.xcodeproj -scheme LiveMacWallpaper build
 ```
 
 The wallpaper extension must be run from a signed app in `/Applications`; macOS
@@ -225,12 +226,30 @@ Signed and notarized build:
 
 ```sh
 SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" \
-NOTARY_PROFILE="wallpaper-studio-notary" \
+NOTARY_PROFILE="lmw-notary" \
 Tools/package_release.sh
 ```
 
 In this mode the script uses a secure timestamp, submits the DMG with `notarytool`,
 staples the ticket and validates it. See [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md).
+
+## Upgrading from Wallpaper Studio
+
+The project was previously called Wallpaper Studio (`com.wallpaperstudio.*`). On first
+launch, Live Mac Wallpaper:
+
+- moves the library from `~/Library/Application Support/com.wallpaperstudio.app` to
+  `~/Library/Application Support/com.livemacwallpaper.app` when the new location
+  doesn't exist yet;
+- copies the import quality and Lock Screen signature preferences from the old defaults
+  domain;
+- removes `~/Library/Screen Savers/Wallpaper Studio.saver` (to the Trash) the next time
+  the Screen Saver module is installed.
+
+Because the bundle identifiers changed, macOS treats it as a new app: turn **Launch at
+Login** on again and re-apply the Lock Screen once so the new wallpaper extension is
+selected. The privileged cleanup tool still recognizes the system paths and launchd
+labels installed by older versions.
 
 ## Limitations
 

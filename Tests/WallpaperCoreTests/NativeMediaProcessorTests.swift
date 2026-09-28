@@ -36,7 +36,7 @@ struct NativeMediaProcessorTests {
 
     @Test("Prepares an opt-in real video regression fixture")
     func preparesExternalRegressionVideoWhenProvided() async throws {
-        guard let path = ProcessInfo.processInfo.environment["WALLPAPER_STUDIO_REGRESSION_VIDEO"]
+        guard let path = ProcessInfo.processInfo.environment["LMW_REGRESSION_VIDEO"]
         else {
             return
         }

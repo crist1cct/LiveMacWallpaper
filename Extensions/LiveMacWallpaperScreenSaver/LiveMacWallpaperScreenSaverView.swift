@@ -3,8 +3,8 @@ import AppKit
 import ScreenSaver
 import WallpaperCore
 
-@objc(WallpaperStudioScreenSaverView)
-public final class WallpaperStudioScreenSaverView: ScreenSaverView {
+@objc(LiveMacWallpaperScreenSaverView)
+public final class LiveMacWallpaperScreenSaverView: ScreenSaverView {
     private var player: AVQueuePlayer?
     private var looper: AVPlayerLooper?
     private var playerLayer: AVPlayerLayer?
@@ -39,7 +39,7 @@ public final class WallpaperStudioScreenSaverView: ScreenSaverView {
         installVisibilityTimer()
         if configurationObserver == nil {
             configurationObserver = DistributedNotificationCenter.default().addObserver(
-                forName: Notification.Name("com.wallpaperstudio.screenSaverConfigurationChanged"),
+                forName: Notification.Name("com.livemacwallpaper.screenSaverConfigurationChanged"),
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
@@ -126,7 +126,7 @@ public final class WallpaperStudioScreenSaverView: ScreenSaverView {
         do {
             let store = ScreenSaverRuntimeStore.sharedForCurrentUser()
             guard let content = try store.load() else {
-                showMessage("Choose Screen Saver content in Wallpaper Studio.")
+                showMessage("Choose Screen Saver content in Live Mac Wallpaper.")
                 return
             }
             let configuration = content.configuration

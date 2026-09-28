@@ -71,7 +71,7 @@ Source: https://developer.apple.com/documentation/servicemanagement/smappservice
 ### User-selected files
 
 Apple recommends `fileImporter` or `NSOpenPanel`. Persistent access in the App Sandbox
-needs security-scoped bookmarks. Wallpaper Studio copies media into Application
+needs security-scoped bookmarks. Live Mac Wallpaper copies media into Application
 Support, so it doesn't depend on later access to the original file.
 
 Source: https://developer.apple.com/documentation/security/accessing-files-from-the-macos-app-sandbox
@@ -103,7 +103,7 @@ internally, but the format is not public API and can change with a macOS update.
 
 macOS 26 also hosts wallpaper providers as ExtensionKit extensions inside
 `WallpaperAgent`, which renders them into a remote `CAContext` under the
-authentication UI. Wallpaper Studio's Lock Screen video uses this path. The provider
+authentication UI. Live Mac Wallpaper's Lock Screen video uses this path. The provider
 draws only its own layer, and the password field, Touch ID and every security control
 stay with the system.
 

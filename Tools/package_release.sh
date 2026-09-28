@@ -4,17 +4,17 @@ set -euo pipefail
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$project_root"
 
-version="${WALLPAPER_STUDIO_VERSION:-1.5.2}"
+version="${LMW_VERSION:-1.7.0}"
 sign_identity="${SIGN_IDENTITY:--}"
 notary_profile="${NOTARY_PROFILE:-}"
 derived_data="$project_root/DerivedData-Release"
 products="$derived_data/Build/Products/Release"
 output_directory="$project_root/build"
-built_application="$products/Wallpaper Studio.app"
+built_application="$products/Live Mac Wallpaper.app"
 built_renderer="$products/WallpaperRenderer.app"
-built_screen_saver="$products/Wallpaper Studio.saver"
+built_screen_saver="$products/Live Mac Wallpaper.saver"
 built_login_installer="$products/LoginWallpaperInstaller"
-built_wallpaper_extension="$built_application/Contents/Extensions/WallpaperStudioWallpaperExtension.appex"
+built_wallpaper_extension="$built_application/Contents/Extensions/LiveMacWallpaperExtension.appex"
 helper="$project_root/Vendor/yt-dlp_macos"
 ffmpeg_helper="$project_root/Vendor/ffmpeg"
 ffmpeg_license="$project_root/Vendor/FFmpeg-LGPL-2.1.txt"
@@ -59,8 +59,8 @@ fi
 xcodegen generate
 xcodebuild \
     -quiet \
-    -project WallpaperStudio.xcodeproj \
-    -scheme WallpaperStudio \
+    -project LiveMacWallpaper.xcodeproj \
+    -scheme LiveMacWallpaper \
     -configuration Release \
     -derivedDataPath "$derived_data" \
     ARCHS="arm64 x86_64" \
@@ -76,17 +76,17 @@ for product in "$built_application" "$built_renderer" "$built_screen_saver" "$bu
     }
 done
 
-assembly_directory="$(mktemp -d /tmp/WallpaperStudioAssembly.XXXXXX)"
+assembly_directory="$(mktemp -d /tmp/LiveMacWallpaperAssembly.XXXXXX)"
 staging_directory=""
 read_write_dmg_directory=""
 trap 'rm -rf "$assembly_directory"; if [[ -n "$staging_directory" ]]; then rm -rf "$staging_directory"; fi; if [[ -n "$read_write_dmg_directory" ]]; then rm -rf "$read_write_dmg_directory"; fi' EXIT
-application="$assembly_directory/Wallpaper Studio.app"
+application="$assembly_directory/Live Mac Wallpaper.app"
 ditto --norsrc "$built_application" "$application"
 
 mkdir -p "$application/Contents/Library/LoginItems"
 mkdir -p "$application/Contents/Resources/Helpers"
 ditto --norsrc "$built_renderer" "$application/Contents/Library/LoginItems/WallpaperRenderer.app"
-ditto --norsrc "$built_screen_saver" "$application/Contents/Resources/Wallpaper Studio.saver"
+ditto --norsrc "$built_screen_saver" "$application/Contents/Resources/Live Mac Wallpaper.saver"
 ditto --norsrc "$helper" "$application/Contents/Resources/Helpers/yt-dlp_macos"
 ditto --norsrc "$ffmpeg_helper" "$application/Contents/Resources/Helpers/ffmpeg"
 ditto --norsrc "$built_login_installer" "$application/Contents/Resources/Helpers/LoginWallpaperInstaller"
@@ -122,7 +122,7 @@ sign_component() {
 
 sign_wallpaper_extension() {
     local component="$1"
-    local entitlements="$project_root/Extensions/WallpaperStudioWallpaper/WallpaperStudioWallpaperExtension.entitlements"
+    local entitlements="$project_root/Extensions/LiveMacWallpaperExtension/LiveMacWallpaperExtension.entitlements"
     if [[ "$sign_identity" == "-" ]]; then
         codesign --force --sign - --options runtime --timestamp=none --entitlements "$entitlements" "$component"
     else
@@ -143,16 +143,16 @@ else
 fi
 sign_component "$application/Contents/Resources/Helpers/ffmpeg"
 sign_component "$application/Contents/Resources/Helpers/LoginWallpaperInstaller"
-sign_component "$application/Contents/Resources/Wallpaper Studio.saver"
+sign_component "$application/Contents/Resources/Live Mac Wallpaper.saver"
 sign_component "$application/Contents/Library/LoginItems/WallpaperRenderer.app"
-sign_wallpaper_extension "$application/Contents/Extensions/WallpaperStudioWallpaperExtension.appex"
+sign_wallpaper_extension "$application/Contents/Extensions/LiveMacWallpaperExtension.appex"
 sign_component "$application"
 
 codesign --verify --deep --strict --verbose=2 "$application"
 
 mkdir -p "$output_directory"
-staging_directory="$(mktemp -d /tmp/WallpaperStudioDMG.XXXXXX)"
-ditto --norsrc "$application" "$staging_directory/Wallpaper Studio.app"
+staging_directory="$(mktemp -d /tmp/LiveMacWallpaperDMG.XXXXXX)"
+ditto --norsrc "$application" "$staging_directory/Live Mac Wallpaper.app"
 ln -s /Applications "$staging_directory/Applications"
 mkdir -p "$staging_directory/.background"
 ditto --norsrc "$dmg_background" "$staging_directory/.background/dmg-background.png"
@@ -174,7 +174,7 @@ on run argv
         set text size of iconOptions to 12
         set label position of iconOptions to bottom
         set background picture of iconOptions to backgroundFile
-        set position of item "Wallpaper Studio.app" of stagingFolder to {250, 300}
+        set position of item "Live Mac Wallpaper.app" of stagingFolder to {250, 300}
         set position of item "Applications" of stagingFolder to {790, 300}
         close stagingWindow saving yes
     end tell
@@ -184,13 +184,13 @@ then
     echo "Warning: Finder could not prepare the DMG source layout."
 fi
 
-dmg_path="$output_directory/Wallpaper-Studio-$version.dmg"
-read_write_dmg_directory="$(mktemp -d /tmp/WallpaperStudioRW.XXXXXX)"
-read_write_dmg="$read_write_dmg_directory/Wallpaper-Studio-$version-rw.dmg"
+dmg_path="$output_directory/Live-Mac-Wallpaper-$version.dmg"
+read_write_dmg_directory="$(mktemp -d /tmp/LiveMacWallpaperRW.XXXXXX)"
+read_write_dmg="$read_write_dmg_directory/Live-Mac-Wallpaper-$version-rw.dmg"
 hdiutil create \
     -size 160m \
     -fs HFS+ \
-    -volname "Wallpaper Studio" \
+    -volname "Live Mac Wallpaper" \
     -srcfolder "$staging_directory" \
     -ov \
     "$read_write_dmg" >/dev/null
@@ -204,10 +204,10 @@ fi
 if [[ -n "$device" ]]; then
     if ! osascript <<'APPLESCRIPT'
 tell application "Finder"
-    tell disk "Wallpaper Studio"
+    tell disk "Live Mac Wallpaper"
         open
         set icon view options of container window to {icon size: 96, text size: 12, arrangement: not arranged, label position: bottom, background picture: file ".background:dmg-background.png"}
-        set position of item "Wallpaper Studio.app" to {250, 300}
+        set position of item "Live Mac Wallpaper.app" to {250, 300}
         set position of item "Applications" to {790, 300}
         update without registering applications
         delay 1

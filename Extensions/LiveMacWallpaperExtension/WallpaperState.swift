@@ -85,7 +85,7 @@ final class WallpaperState: Sendable {
                 let state = Unmanaged<WallpaperState>.fromOpaque(observer).takeUnretainedValue()
                 state.clearCaches()
             },
-            "com.wallpaperstudio.wallpaper.libraryChanged" as CFString,
+            "com.livemacwallpaper.wallpaper.libraryChanged" as CFString,
             nil,
             .deliverImmediately,
         )

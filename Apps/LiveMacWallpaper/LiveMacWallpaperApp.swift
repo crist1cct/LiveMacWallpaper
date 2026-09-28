@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct WallpaperStudioApp: App {
+struct LiveMacWallpaperApp: App {
     @StateObject private var model = AppModel()
 
     var body: some Scene {
@@ -35,8 +35,8 @@ struct WallpaperStudioApp: App {
                 }
             }
             CommandMenu("Wallpaper") {
-                Button("Lock with Wallpaper Studio") {
-                    Task { await model.lockNowWithWallpaperStudio() }
+                Button("Lock with Live Mac Wallpaper") {
+                    Task { await model.lockNowWithLiveMacWallpaper() }
                 }
                 .keyboardShortcut("l", modifiers: [.command, .shift])
                 .disabled(model.isApplying)

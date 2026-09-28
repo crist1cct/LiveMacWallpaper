@@ -1,9 +1,9 @@
-WALLPAPER STUDIO — INSTALLATION
+LIVE MAC WALLPAPER (LMW) — INSTALLATION
 
 Requires macOS 15 or later. Lock Screen video requires macOS 26.
 
-1. Quit any running copy of Wallpaper Studio.
-2. Drag "Wallpaper Studio" into the Applications folder and replace the old copy.
+1. Quit any running copy of Live Mac Wallpaper.
+2. Drag "Live Mac Wallpaper" into the Applications folder and replace the old copy.
 3. Eject the DMG and open the app from Applications only.
    On first launch: right-click the app → Open.
 4. Import an image or a video into the Library (⌘O, or drag files into the window).
@@ -15,7 +15,7 @@ Requires macOS 15 or later. Lock Screen video requires macOS 26.
 
 LOCK SCREEN VIDEO
 
-On macOS 26 the Lock Screen uses the native Wallpaper Studio wallpaper
+On macOS 26 the Lock Screen uses the native Live Mac Wallpaper
 extension and stays independent of the Desktop. On macOS 15 Lock Screen video is
 not available; Desktop, Library, YouTube import and Screen Saver keep working.
 
@@ -29,7 +29,7 @@ ABOUT UNNOTARIZED BUILDS
 If the DMG is not notarized with a Developer ID, macOS may show a Gatekeeper
 warning. For a test build received directly from the developer, move the app to
 Applications, then right-click it → Open and confirm once. On first launch the
-app registers the Wallpaper Studio extension automatically; don't select it in
+app registers the Live Mac Wallpaper extension automatically; don't select it in
 System Settings before opening the app from Applications.
 
 Distribution to other people requires a build signed with Developer ID

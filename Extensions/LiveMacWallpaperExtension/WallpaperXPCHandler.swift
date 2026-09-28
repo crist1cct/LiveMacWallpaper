@@ -42,7 +42,7 @@ func makeVariantSelector(choice: String?, fallback: URL) -> @Sendable () -> URL 
 struct SendableBox<T>: @unchecked Sendable { let value: T }
 
 enum Lifecycle {
-    static let queue = DispatchQueue(label: "com.wallpaperstudio.wallpaper.lifecycle")
+    static let queue = DispatchQueue(label: "com.livemacwallpaper.wallpaper.lifecycle")
 
     /// Pending per-display teardown timers. Touched ONLY on `queue`.
     nonisolated(unsafe) static var teardownTimers: [DisplayKey: DispatchWorkItem] = [:]
@@ -280,7 +280,7 @@ final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol {
             }
 
             guard let replyObj = createRemoteContextXPC(contextId: existing.contextId) else {
-                reply(nil, NSError(domain: "WallpaperStudioWallpaperExtension", code: 3, userInfo: nil)); return
+                reply(nil, NSError(domain: "LiveMacWallpaperExtension", code: 3, userInfo: nil)); return
             }
             reply(replyObj, nil)
 
@@ -328,7 +328,7 @@ final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol {
                     // before this process launched (fullscreen app, occlusion,
                     // per-display pause) arrive by prefs reload, not notification,
                     // so apply them now rather than waiting for the next change.
-                    WallpaperStudioWallpaperExtension.recomputeAndApplyPolicy()
+                    LiveMacWallpaperExtension.recomputeAndApplyPolicy()
                 }
             } else {
                 traceLog("  [acquire] renderer create already in flight for display \(key.displayID) — skipping duplicate")
@@ -346,7 +346,7 @@ final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol {
             : CAContext.perform(NSSelectorFromString("remoteContextWithOptions:"), with: contextOptions)?.takeUnretainedValue()
         guard let caContext = caContextRaw as? CAContext, caContext.contextId != 0 else {
             extensionLog("  ERROR: remote CAContext creation failed — failing acquire")
-            reply(nil, NSError(domain: "WallpaperStudioWallpaperExtension", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to create remote CAContext"]))
+            reply(nil, NSError(domain: "LiveMacWallpaperExtension", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to create remote CAContext"]))
             return
         }
         let contextId = caContext.contextId
@@ -361,7 +361,7 @@ final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol {
         CATransaction.flush()
 
         guard let replyObj = createRemoteContextXPC(contextId: contextId) else {
-            reply(nil, NSError(domain: "WallpaperStudioWallpaperExtension", code: 3, userInfo: nil)); return
+            reply(nil, NSError(domain: "LiveMacWallpaperExtension", code: 3, userInfo: nil)); return
         }
 
         // Install the persistent slot now (renderer added async) so a concurrent
@@ -461,7 +461,7 @@ final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol {
                     // acquire: apply pause conditions that predate this process
                     // (fullscreen app, occlusion, per-display pause), which arrive
                     // by prefs reload rather than a change notification.
-                    WallpaperStudioWallpaperExtension.recomputeAndApplyPolicy()
+                    LiveMacWallpaperExtension.recomputeAndApplyPolicy()
                 })
             }
         } else {
@@ -479,7 +479,7 @@ final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol {
         if let existing = WallpaperState.shared.context(for: key) {
             traceLog("  [bisect] REUSE ctx=\(existing.contextId) display=\(key.displayID) stored=\(existing.videoID ?? "nil") new=\(choice ?? "nil")")
             guard let replyObj = createRemoteContextXPC(contextId: existing.contextId) else {
-                reply(nil, NSError(domain: "WallpaperStudioWallpaperExtension", code: 3, userInfo: nil)); return
+                reply(nil, NSError(domain: "LiveMacWallpaperExtension", code: 3, userInfo: nil)); return
             }
             reply(replyObj, nil)
             if existing.videoID == choice {
@@ -497,7 +497,7 @@ final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol {
             ? CAContext.remoteContext()
             : CAContext.perform(NSSelectorFromString("remoteContextWithOptions:"), with: contextOptions)?.takeUnretainedValue()
         guard let caContext = caContextRaw as? CAContext, caContext.contextId != 0 else {
-            reply(nil, NSError(domain: "WallpaperStudioWallpaperExtension", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to create remote CAContext"]))
+            reply(nil, NSError(domain: "LiveMacWallpaperExtension", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to create remote CAContext"]))
             return
         }
         let rootLayer = CALayer()
@@ -507,7 +507,7 @@ final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol {
         caContext.layer = rootLayer
         CATransaction.flush()
         guard let replyObj = createRemoteContextXPC(contextId: caContext.contextId) else {
-            reply(nil, NSError(domain: "WallpaperStudioWallpaperExtension", code: 3, userInfo: nil)); return
+            reply(nil, NSError(domain: "LiveMacWallpaperExtension", code: 3, userInfo: nil)); return
         }
         WallpaperState.shared.installContext(
             ActiveWallpaper(caContext: caContext, contextId: caContext.contextId, rootLayer: rootLayer, renderer: nil, displayID: displayID, videoID: choice, isPreview: acquiredAsPreview, destSize: destSize, scaleFactor: scaleFactor),
@@ -802,8 +802,8 @@ final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol {
         extensionLog("=== CONTEXT MENU ACTION === identifier: \(identifier)")
 
         let urlByAction = [
-            "add-video": "wallpaperstudio://add-video",
-            "manage-library": "wallpaperstudio://library",
+            "add-video": "livemacwallpaper://add-video",
+            "manage-library": "livemacwallpaper://library",
         ]
         if let urlString = urlByAction[identifier], let url = URL(string: urlString) {
             extensionLog("  Launching companion app via NSWorkspace: \(urlString)")

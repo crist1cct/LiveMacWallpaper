@@ -7,15 +7,15 @@ import WallpaperCore
 
 @MainActor
 final class SystemIntegrationService {
-    static let rendererBundleIdentifier = "com.wallpaperstudio.renderer"
+    static let rendererBundleIdentifier = "com.livemacwallpaper.renderer"
     static let configurationChangedNotification = Notification.Name(
-        "com.wallpaperstudio.configurationChanged"
+        "com.livemacwallpaper.configurationChanged"
     )
     static let rendererReadyNotification = Notification.Name(
-        "com.wallpaperstudio.rendererReady"
+        "com.livemacwallpaper.rendererReady"
     )
     static let screenSaverConfigurationChangedNotification = Notification.Name(
-        "com.wallpaperstudio.screenSaverConfigurationChanged"
+        "com.livemacwallpaper.screenSaverConfigurationChanged"
     )
 
     private var rendererProcess: Process?
@@ -26,12 +26,12 @@ final class SystemIntegrationService {
     }
 
     var screenSaverSourceURL: URL? {
-        Bundle.main.url(forResource: "Wallpaper Studio", withExtension: "saver")
+        Bundle.main.url(forResource: "Live Mac Wallpaper", withExtension: "saver")
     }
 
     var installedScreenSaverURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Screen Savers/Wallpaper Studio.saver")
+            .appendingPathComponent("Library/Screen Savers/Live Mac Wallpaper.saver")
     }
 
     var isScreenSaverInstalled: Bool {
@@ -169,7 +169,7 @@ final class SystemIntegrationService {
         let destination = installedScreenSaverURL
         let parent = destination.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
-        let temporary = parent.appendingPathComponent(".WallpaperStudio-\(UUID().uuidString).saver")
+        let temporary = parent.appendingPathComponent(".LiveMacWallpaper-\(UUID().uuidString).saver")
         try FileManager.default.copyItem(at: source, to: temporary)
         if FileManager.default.fileExists(atPath: destination.path) {
             _ = try FileManager.default.replaceItemAt(destination, withItemAt: temporary)
@@ -177,6 +177,18 @@ final class SystemIntegrationService {
             try FileManager.default.moveItem(at: temporary, to: destination)
         }
         terminateLegacyScreenSaverHost()
+        removeScreenSaverFromBeforeRename()
+    }
+
+    /// The module was called "Wallpaper Studio.saver" before the rename; leaving it
+    /// installed would show two entries in System Settings.
+    private func removeScreenSaverFromBeforeRename() {
+        let legacy = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Screen Savers/Wallpaper Studio.saver")
+        guard legacy != installedScreenSaverURL,
+              FileManager.default.fileExists(atPath: legacy.path)
+        else { return }
+        try? FileManager.default.trashItem(at: legacy, resultingItemURL: nil)
     }
 
     func configureScreenSaver(
@@ -443,7 +455,7 @@ enum SystemIntegrationError: Error, LocalizedError {
         case .screenSaverVerificationFailed:
             "The Screen Saver display selection couldn't be confirmed."
         case .lockScreenPermissionRequired:
-            "To lock natively, allow Wallpaper Studio in System Settings → Privacy & Security → Accessibility, then choose Lock again."
+            "To lock natively, allow Live Mac Wallpaper in System Settings → Privacy & Security → Accessibility, then choose Lock again."
         case .lockScreenRequestFailed:
             "macOS rejected the lock command."
         }

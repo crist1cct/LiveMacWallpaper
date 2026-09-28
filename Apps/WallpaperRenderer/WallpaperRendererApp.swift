@@ -14,7 +14,7 @@ struct WallpaperRendererApp: App {
 @MainActor
 final class RendererDelegate: NSObject, NSApplicationDelegate {
     private static let readyNotification = Notification.Name(
-        "com.wallpaperstudio.rendererReady"
+        "com.livemacwallpaper.rendererReady"
     )
     private let engine = DesktopVideoEngine()
     private let imageOverlayEngine = DesktopImageOverlayEngine()
@@ -31,7 +31,7 @@ final class RendererDelegate: NSObject, NSApplicationDelegate {
         }
 
         configurationObserver = DistributedNotificationCenter.default().addObserver(
-            forName: Notification.Name("com.wallpaperstudio.configurationChanged"),
+            forName: Notification.Name("com.livemacwallpaper.configurationChanged"),
             object: nil,
             queue: .main
         ) { [weak self] _ in

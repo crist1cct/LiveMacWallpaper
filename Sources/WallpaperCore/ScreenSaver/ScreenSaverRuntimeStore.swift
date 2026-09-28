@@ -120,7 +120,7 @@ public enum ScreenSaverRuntimeError: Error, Equatable, LocalizedError {
 
 /// A deliberately small, read-only-at-playback package in `/Users/Shared`.
 /// Modern macOS runs legacy `.saver` bundles inside an Apple sandbox, so they
-/// cannot read Wallpaper Studio's normal Application Support directory.
+/// cannot read Live Mac Wallpaper's normal Application Support directory.
 public struct ScreenSaverRuntimeStore: Sendable {
     public let root: URL
 
@@ -131,7 +131,7 @@ public struct ScreenSaverRuntimeStore: Sendable {
     public static func sharedForCurrentUser() -> ScreenSaverRuntimeStore {
         ScreenSaverRuntimeStore(
             root: URL(fileURLWithPath: "/Users/Shared", isDirectory: true)
-                .appendingPathComponent("Wallpaper Studio", isDirectory: true)
+                .appendingPathComponent("Live Mac Wallpaper", isDirectory: true)
                 .appendingPathComponent(String(getuid()), isDirectory: true)
                 .appendingPathComponent("Screen Saver", isDirectory: true)
         )
@@ -234,7 +234,7 @@ public struct ScreenSaverRuntimeStore: Sendable {
         let userRoot = root.deletingLastPathComponent()
         var directories = [userRoot, root, root.appendingPathComponent("Media", isDirectory: true)]
         let commonRoot = userRoot.deletingLastPathComponent().standardizedFileURL
-        if commonRoot.path == "/Users/Shared/Wallpaper Studio" {
+        if commonRoot.path == "/Users/Shared/Live Mac Wallpaper" {
             directories.insert(commonRoot, at: 0)
         }
         for directory in directories {

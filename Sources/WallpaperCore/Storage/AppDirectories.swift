@@ -7,8 +7,11 @@ public struct AppDirectories: Sendable {
         self.root = root.standardizedFileURL
     }
 
+    /// Bundle identifier used before the project was renamed to Live Mac Wallpaper.
+    public static let legacyBundleIdentifier = "com.wallpaperstudio.app"
+
     public static func applicationSupport(
-        bundleIdentifier: String = "com.wallpaperstudio.app",
+        bundleIdentifier: String = "com.livemacwallpaper.app",
         fileManager: FileManager = .default
     ) throws -> AppDirectories {
         let base = try fileManager.url(
@@ -17,7 +20,21 @@ public struct AppDirectories: Sendable {
             appropriateFor: nil,
             create: true
         )
-        return AppDirectories(root: base.appendingPathComponent(bundleIdentifier, isDirectory: true))
+        let root = base.appendingPathComponent(bundleIdentifier, isDirectory: true)
+        migrateLegacyLibrary(to: root, base: base, fileManager: fileManager)
+        return AppDirectories(root: root)
+    }
+
+    /// One-time move of a library created under the previous bundle identifier.
+    /// Items store relative paths, so the whole directory can be moved as-is.
+    /// Nothing happens when the new location already exists.
+    static func migrateLegacyLibrary(to root: URL, base: URL, fileManager: FileManager) {
+        let legacy = base.appendingPathComponent(legacyBundleIdentifier, isDirectory: true)
+        guard legacy.standardizedFileURL != root.standardizedFileURL,
+              !fileManager.fileExists(atPath: root.path),
+              fileManager.fileExists(atPath: legacy.path)
+        else { return }
+        try? fileManager.moveItem(at: legacy, to: root)
     }
 
     public var media: URL { root.appendingPathComponent("Media", isDirectory: true) }

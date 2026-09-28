@@ -54,7 +54,7 @@ struct MediaDetailView: View {
                 model.delete(item)
             }
         } message: {
-            Text("Only the Wallpaper Studio copy is deleted. The original file is not touched.")
+            Text("Only the Live Mac Wallpaper copy is deleted. The original file is not touched.")
         }
         .preferredColorScheme(.dark)
     }

@@ -3,7 +3,7 @@ import ExtensionFoundation
 import Foundation
 
 @main
-final class WallpaperStudioWallpaperExtension: NSObject, AppExtension {
+final class LiveMacWallpaperExtension: NSObject, AppExtension {
     override required init() {
         super.init()
 
@@ -154,7 +154,7 @@ final class WallpaperStudioWallpaperExtension: NSObject, AppExtension {
                 extensionLog("[Extension] Library changed notification received, re-scanned")
                 SettingsPush.libraryDidChange()
             },
-            "com.wallpaperstudio.wallpaper.libraryChanged" as CFString,
+            "com.livemacwallpaper.wallpaper.libraryChanged" as CFString,
             nil,
             .deliverImmediately,
         )

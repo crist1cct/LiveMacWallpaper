@@ -4,7 +4,7 @@ import Foundation
 /// Build a fully-populated WallpaperSettingsViewModelsXPC using Codable shims.
 /// Creates one SettingsItem per video in the library.
 func buildSettingsViewModelsXPC() async -> AnyObject? {
-    let bundleID = Bundle.main.bundleIdentifier ?? "com.wallpaperstudio.app.wallpaper-extension"
+    let bundleID = Bundle.main.bundleIdentifier ?? "com.livemacwallpaper.app.wallpaper-extension"
     let library = VideoLibrary.shared
     let groupID = GroupID(id: "video-wallpapers")
 
@@ -15,7 +15,7 @@ func buildSettingsViewModelsXPC() async -> AnyObject? {
 
     // Right-click menu on the group and every tile. Settings routes presses to
     // invokeContextMenuAction with the item's identifier; the handler opens the
-    // matching wallpaperstudio:// URL in the companion app.
+    // matching livemacwallpaper:// URL in the companion app.
     let addVideoMenu = ContextMenu(items: [
         ContextMenuItem(
             id: ContextMenuItemID(id: "add-video"),

@@ -2,6 +2,15 @@
 
 ## 1.7.0
 
+### Rename
+
+- The project is now **Live Mac Wallpaper (LMW)**. Targets, modules, types, bundle
+  identifiers (`com.livemacwallpaper.*`), the URL scheme (`livemacwallpaper://`), Darwin
+  notification names, environment variables (`LMW_*`) and the DMG name follow the new
+  name.
+- The existing library, preferences and Screen Saver module are migrated automatically;
+  see "Upgrading from Wallpaper Studio" in the README.
+
 ### Interface
 
 - New window layout with a hidden title bar and a floating tab bar
@@ -40,7 +49,7 @@
 
 ## 1.5.4
 
-- The Wallpaper Studio wallpaper provider is registered automatically on first launch
+- The Live Mac Wallpaper provider is registered automatically on first launch
   from `/Applications`, and a stale explicit registration is cleared before applying.
 
 ## 1.1

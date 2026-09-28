@@ -12,7 +12,7 @@
 - Notarization: requires a `Developer ID Application` certificate and a `notarytool`
   keychain profile
 
-On first launch from `/Applications` the app registers the Wallpaper Studio wallpaper
+On first launch from `/Applications` the app registers the Live Mac Wallpaper
 provider with macOS and clears any stale explicit registration before applying. For
 distribution to other people an Apple Development signature is not enough: use
 Developer ID and notarization, otherwise `WallpaperAgent` can refuse the extension even
@@ -42,7 +42,7 @@ After installing the Developer ID certificate and creating a `notarytool` profil
 
 ```sh
 SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" \
-NOTARY_PROFILE="wallpaper-studio-notary" \
+NOTARY_PROFILE="lmw-notary" \
 Tools/package_release.sh
 ```
 

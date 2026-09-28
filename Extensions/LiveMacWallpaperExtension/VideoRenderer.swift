@@ -140,7 +140,7 @@ final class VideoRenderer: @unchecked Sendable {
         stillFrameLayer.contentsGravity = .resizeAspectFill
         stillFrameLayer.contentsScale = rootLayer.contentsScale
         stillFrameLayer.opacity = 0
-        stillFrameLayer.name = "wallpaperstudio.stillFrame"
+        stillFrameLayer.name = "livemacwallpaper.stillFrame"
 
         var tb: CMTimebase?
         CMTimebaseCreateWithSourceClock(
@@ -165,7 +165,7 @@ final class VideoRenderer: @unchecked Sendable {
         // once rate=1.
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        rootLayer.sublayers?.filter { $0.name == "wallpaperstudio.stillFrame" }.forEach { $0.removeFromSuperlayer() }
+        rootLayer.sublayers?.filter { $0.name == "livemacwallpaper.stillFrame" }.forEach { $0.removeFromSuperlayer() }
         rootLayer.addSublayer(displayLayer)
         rootLayer.addSublayer(stillFrameLayer)
         traceLog("  [Renderer #\(debugID)] CREATED for \(asset.url.lastPathComponent), displayLayer=\(ObjectIdentifier(displayLayer)), rootLayer sublayers=\((rootLayer.sublayers?.count ?? 0))")

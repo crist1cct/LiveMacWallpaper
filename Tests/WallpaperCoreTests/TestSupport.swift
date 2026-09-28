@@ -6,7 +6,7 @@ final class TemporaryDirectory {
 
     init() throws {
         url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("WallpaperStudioTests-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("LiveMacWallpaperTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     }
 

@@ -20,11 +20,11 @@ enum WallpaperExtensionError: Error, LocalizedError {
         case .requiresTahoe:
             "Lock Screen video requires macOS 26 Tahoe or later."
         case .extensionMissing:
-            "The Wallpaper Studio extension for macOS 26 is missing from the app. Reinstall the app from the DMG."
+            "The Live Mac Wallpaper extension for macOS 26 is missing from the app. Reinstall the app from the DMG."
         case .extensionRegistrationFailed:
-            "macOS didn't accept the Wallpaper Studio extension. Install the signed app in Applications and open it from there."
+            "macOS didn't accept the Live Mac Wallpaper extension. Install the signed app in Applications and open it from there."
         case .extensionNotRegistered:
-            "The Wallpaper Studio extension isn't registered with macOS. Quit the app, move it to Applications and open it again."
+            "The Live Mac Wallpaper extension isn't registered with macOS. Quit the app, move it to Applications and open it again."
         case .videoRequired:
             "A video must be selected for the Lock Screen."
         case .wallpaperStoreMissing:
@@ -34,7 +34,7 @@ enum WallpaperExtensionError: Error, LocalizedError {
         case .deploymentFailed:
             "The video couldn't be prepared for the Lock Screen extension."
         case .verificationFailed:
-            "macOS didn't keep the Wallpaper Studio Lock Screen selection."
+            "macOS didn't keep the Live Mac Wallpaper Lock Screen selection."
         case .noBackup:
             "There's no saved Apple configuration to restore."
         }
@@ -45,9 +45,9 @@ enum WallpaperExtensionError: Error, LocalizedError {
 /// the resulting surface, so it remains behind the secure authentication UI.
 @MainActor
 final class WallpaperExtensionService {
-    static let bundleIdentifier = "com.wallpaperstudio.app.wallpaper-extension"
-    static let libraryChangedNotification = "com.wallpaperstudio.wallpaper.libraryChanged"
-    static let preferencesChangedNotification = "com.wallpaperstudio.wallpaper.prefsChanged"
+    static let bundleIdentifier = "com.livemacwallpaper.app.wallpaper-extension"
+    static let libraryChangedNotification = "com.livemacwallpaper.wallpaper.libraryChanged"
+    static let preferencesChangedNotification = "com.livemacwallpaper.wallpaper.prefsChanged"
 
     private struct Metadata: Codable {
         let id: String
@@ -79,7 +79,7 @@ final class WallpaperExtensionService {
     private var extensionBundleURL: URL {
         Bundle.main.bundleURL
             .appendingPathComponent("Contents/Extensions", isDirectory: true)
-            .appendingPathComponent("WallpaperStudioWallpaperExtension.appex", isDirectory: true)
+            .appendingPathComponent("LiveMacWallpaperExtension.appex", isDirectory: true)
     }
 
     private var extensionDocumentsURL: URL {
@@ -96,7 +96,7 @@ final class WallpaperExtensionService {
 
     private var backupURL: URL {
         fileManager.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/com.wallpaperstudio.app/Backups", isDirectory: true)
+            .appendingPathComponent("Library/Application Support/com.livemacwallpaper.app/Backups", isDirectory: true)
             .appendingPathComponent("WallpaperExtension-Index.plist")
     }
 
@@ -120,7 +120,7 @@ final class WallpaperExtensionService {
             try registerEmbeddedExtension()
             return true
         } catch {
-            NSLog("[Wallpaper Studio] extension registration failed: %@", error.localizedDescription)
+            NSLog("[Live Mac Wallpaper] extension registration failed: %@", error.localizedDescription)
             return false
         }
     }
@@ -282,7 +282,7 @@ final class WallpaperExtensionService {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         try encoder.encode(preferences).write(
-            to: extensionDocumentsURL.appendingPathComponent("wallpaperstudio-prefs.json"),
+            to: extensionDocumentsURL.appendingPathComponent("livemacwallpaper-prefs.json"),
             options: .atomic
         )
     }
@@ -425,7 +425,7 @@ final class WallpaperExtensionService {
 
     private func restartWallpaperServices() {
         run("/usr/bin/killall", ["-KILL", "WallpaperAgent"])
-        run("/usr/bin/killall", ["-KILL", "WallpaperStudioWallpaperExtension"])
+        run("/usr/bin/killall", ["-KILL", "LiveMacWallpaperExtension"])
     }
 
     @discardableResult

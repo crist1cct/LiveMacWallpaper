@@ -61,7 +61,7 @@ final class LockScreenAudioController: @unchecked Sendable {
         case playing
     }
 
-    private let queue = DispatchQueue(label: "com.wallpaperstudio.lock-screen-audio", qos: .userInteractive)
+    private let queue = DispatchQueue(label: "com.livemacwallpaper.lock-screen-audio", qos: .userInteractive)
 
     // Everything below is confined to `queue`, except `livePlayer` (see stopImmediately).
     private var player: AVQueuePlayer?

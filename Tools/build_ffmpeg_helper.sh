@@ -4,7 +4,7 @@ set -euo pipefail
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
 version="9.0.1"
 archive_hash="cf38e0e28c7e5605942c4a77755349b0145804a397af37eb1fb4c77cb237f635"
-work_directory="$(mktemp -d /tmp/WallpaperStudioFFmpeg.XXXXXX)"
+work_directory="$(mktemp -d /tmp/LiveMacWallpaperFFmpeg.XXXXXX)"
 trap 'rm -rf "$work_directory"' EXIT
 
 archive="$work_directory/ffmpeg-$version.tar.xz"

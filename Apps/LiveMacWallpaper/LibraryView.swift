@@ -153,7 +153,7 @@ struct EmptyLibraryView: View {
                 .frame(width: 112, height: 112)
                 .tvGlass(in: Circle())
             VStack(spacing: 8) {
-                Text("Welcome to Wallpaper Studio")
+                Text("Welcome to Live Mac Wallpaper")
                     .font(.system(size: 30, weight: .bold))
                     .foregroundStyle(.white)
                 Text("Add a video or an image and put it on your Desktop, Screen Saver or Lock Screen in one click.")

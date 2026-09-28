@@ -1,8 +1,8 @@
-Wallpaper Studio uses yt-dlp for the optional YouTube import feature.
+Live Mac Wallpaper uses yt-dlp for the optional YouTube import feature.
 yt-dlp is released into the public domain under The Unlicense.
 Project: https://github.com/yt-dlp/yt-dlp
 
-Wallpaper Studio uses a minimal FFmpeg helper for media formats that Apple
+Live Mac Wallpaper uses a minimal FFmpeg helper for media formats that Apple
 AVFoundation cannot prepare. FFmpeg is licensed under LGPL 2.1 or later in
 this build. Project and corresponding source: https://ffmpeg.org/
 The complete license text, corresponding source archive, and reproducible build

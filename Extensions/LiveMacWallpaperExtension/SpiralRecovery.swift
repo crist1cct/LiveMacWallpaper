@@ -3,7 +3,7 @@ import os
 
 enum SpiralRecovery {
     /// Darwin notification the main (unsandboxed) app listens for to `killall WallpaperAgent`.
-    static let agentStuckNotification = "com.wallpaperstudio.wallpaper.agentStuck"
+    static let agentStuckNotification = "com.livemacwallpaper.wallpaper.agentStuck"
 
     /// Consecutive empty connections that trigger recovery. Normal operation never produces
     /// consecutive empties (every real connection serves a method, which resets the count),
@@ -19,7 +19,7 @@ enum SpiralRecovery {
 
     private static var lastRecoveryURL: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("wallpaperstudio-last-recovery")
+            .appendingPathComponent("livemacwallpaper-last-recovery")
     }
 
     /// A connection served at least one method → the Agent is talking to us normally.

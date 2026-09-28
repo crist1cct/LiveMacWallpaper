@@ -3,7 +3,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "WallpaperStudio",
+    name: "LiveMacWallpaper",
     platforms: [
         .macOS(.v15)
     ],

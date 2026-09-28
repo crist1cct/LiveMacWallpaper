@@ -25,9 +25,9 @@ enum LoginWallpaperError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .helperMissing:
-            "The Lock Screen installer component is missing. Reinstall Wallpaper Studio from the DMG."
+            "The Lock Screen installer component is missing. Reinstall Live Mac Wallpaper from the DMG."
         case .rendererMissing:
-            "The Login Window video renderer is missing. Reinstall Wallpaper Studio from the DMG."
+            "The Login Window video renderer is missing. Reinstall Live Mac Wallpaper from the DMG."
         case .videoRequired:
             "Choose a video from the Library for the Lock Screen."
         case .configurationWriteFailed:

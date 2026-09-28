@@ -1,6 +1,6 @@
 # Architecture and design principles
 
-This document describes how Wallpaper Studio is structured and the rules the
+This document describes how Live Mac Wallpaper is structured and the rules the
 implementation follows. For the API-level research behind it see
 [RESEARCH.md](RESEARCH.md).
 

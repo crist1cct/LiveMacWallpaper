@@ -80,7 +80,7 @@ final class PowerMonitor: Sendable {
         // notification when the user drags the slider, and `screensDidSleep`
         // doesn't fire when brightness is held at zero manually.
         let scheduler = NSBackgroundActivityScheduler(
-            identifier: "com.wallpaperstudio.wallpaper.powerCheck",
+            identifier: "com.livemacwallpaper.wallpaper.powerCheck",
         )
         scheduler.interval = 30
         scheduler.tolerance = 15

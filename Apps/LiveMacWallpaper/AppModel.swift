@@ -105,12 +105,29 @@ final class AppModel: ObservableObject {
     private var hasStarted = false
 
     init() {
+        Self.migrateLegacyDefaults()
+        if let migrated = MediaQuality(rawValue: UserDefaults.standard.string(forKey: "importQuality") ?? "") {
+            importQuality = migrated
+        }
         do {
             backend = try WallpaperBackend.live()
         } catch {
             backend = nil
             bannerMessage = error.localizedDescription
         }
+    }
+
+    /// Carries preferences over from the bundle identifier used before the rename.
+    private static func migrateLegacyDefaults() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: "migratedLegacyDefaults"),
+              let legacy = UserDefaults(suiteName: AppDirectories.legacyBundleIdentifier)
+        else { return }
+        for key in ["importQuality", "loginWallpaperConfigurationSignature"]
+        where defaults.object(forKey: key) == nil {
+            if let value = legacy.object(forKey: key) { defaults.set(value, forKey: key) }
+        }
+        defaults.set(true, forKey: "migratedLegacyDefaults")
     }
 
     var filteredMediaItems: [MediaItem] {
@@ -200,7 +217,7 @@ final class AppModel: ObservableObject {
         await refresh()
         isLoading = false
         if Bundle.main.bundleURL.path.hasPrefix("/Volumes/"), bannerMessage == nil {
-            bannerMessage = "Move Wallpaper Studio to Applications so the video wallpaper also starts automatically after login."
+            bannerMessage = "Move Live Mac Wallpaper to Applications so the video wallpaper also starts automatically after login."
         }
     }
 
@@ -426,7 +443,7 @@ final class AppModel: ObservableObject {
         await updateInstalledLockPoster()
     }
 
-    func lockNowWithWallpaperStudio() async {
+    func lockNowWithLiveMacWallpaper() async {
         let requestedConfiguration = draftProfile.lockScreen
         await applyDestination(.lockScreen)
         guard let profile = activeProfile,
@@ -450,7 +467,7 @@ final class AppModel: ObservableObject {
         guard activeProfile?.screenSaver == requested else { return }
         do {
             let application = try await integrations.startScreenSaver()
-            successMessage = "Wallpaper Studio Screen Saver started with the selected video."
+            successMessage = "Live Mac Wallpaper Screen Saver started with the selected video."
             Task { [weak self] in
                 guard let self else { return }
                 await self.integrations.waitForTermination(of: application)
@@ -572,7 +589,7 @@ final class AppModel: ObservableObject {
         do {
             try integrations.installScreenSaver()
             isScreenSaverInstalled = true
-            successMessage = "Wallpaper Studio Screen Saver updated."
+            successMessage = "Live Mac Wallpaper Screen Saver updated."
         } catch {
             show(error)
         }

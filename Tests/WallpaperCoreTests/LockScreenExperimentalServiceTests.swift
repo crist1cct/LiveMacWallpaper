@@ -33,7 +33,7 @@ struct LockScreenExperimentalServiceTests {
             options: 0
         )
         try originalData.write(to: paths.index)
-        let moduleURL = temporary.url.appendingPathComponent("Wallpaper Studio.saver", isDirectory: true)
+        let moduleURL = temporary.url.appendingPathComponent("Live Mac Wallpaper.saver", isDirectory: true)
         try FileManager.default.createDirectory(at: moduleURL, withIntermediateDirectories: true)
 
         let service = LockScreenExperimentalService(

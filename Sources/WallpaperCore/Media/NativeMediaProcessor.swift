@@ -446,7 +446,7 @@ public struct NativeMediaProcessor: MediaProcessing {
         ) {
             candidates.append(bundled)
         }
-        if let explicitPath = ProcessInfo.processInfo.environment["WALLPAPER_STUDIO_FFMPEG"] {
+        if let explicitPath = ProcessInfo.processInfo.environment["LMW_FFMPEG"] {
             candidates.append(URL(fileURLWithPath: explicitPath))
         }
         candidates += [
