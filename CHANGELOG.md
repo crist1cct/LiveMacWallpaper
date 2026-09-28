@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.8.0
+
+### Lock Screen audio
+
+- New native audio engine. Sound is decoded by the same `AVAssetReader` as the picture
+  and played through an `AVSampleBufferAudioRenderer` attached to the same
+  `AVSampleBufferRenderSynchronizer` as the video renderer. Picture and sound share one
+  hardware clock, so the separate audio player, the drift correction and the re-seeks
+  that caused dropouts are gone.
+- Audio loops gaplessly with the video; buffers are trimmed at the video track's end.
+- One display is audible at a time; sound fades in once the picture reaches normal
+  speed and is cut instantly on unlock or sleep.
+
+### Interface
+
+- Fixed pages growing past the window: aspect-fill artwork and video backdrops no
+  longer take part in layout (this also fixed the YouTube sheet overflowing after a
+  link was checked).
+- Responsive layout: margins, title sizes, shelves, grids, the top bar and Settings
+  rows adapt to the window width. The window has a minimum size (760 × 540).
+- YouTube import is one step: paste a link, confirm the rights, press **Install**. The
+  video info appears while it downloads; closing the sheet keeps the download running
+  as a toast.
+
+### System integration
+
+- Wallpapers appear in System Settings under **LMW** (extension name, provider group,
+  entry descriptions and the Screen Saver's display name).
+- The DMG installs a **Live Mac Wallpaper** folder in Applications containing the app
+  and the install notes. An older copy at `/Applications/Live Mac Wallpaper.app` is
+  moved to the Trash on first launch from the new location.
+
 ## 1.7.0
 
 ### Rename

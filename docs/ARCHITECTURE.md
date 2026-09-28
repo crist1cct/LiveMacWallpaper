@@ -41,7 +41,7 @@ implementation follows. For the API-level research behind it see
 | `RuntimeConfigurationStore` | versioned JSON profile shared with helper processes |
 | `LockScreenStoreInspector` / `LockScreenExperimentalService` | read-only compatibility checks and backup/restore of wallpaper store state |
 | `WallpaperBackend` | single facade the app's view model talks to |
-| Wallpaper extension | `VideoRenderer`, `PlaybackPolicy`, `ShuffleController`, `LockScreenAudioController` inside `WallpaperAgent` |
+| Wallpaper extension | `VideoRenderer` (synchronized video + audio), `PlaybackPolicy`, `ShuffleController`, `LockScreenAudioController` inside `WallpaperAgent` |
 
 The SwiftUI layer talks only to `AppModel`, which calls `WallpaperBackend`. Views never
 touch files, helper processes or system stores directly.
@@ -71,35 +71,40 @@ active profile. Destinations that follow it are re-applied too.
 
 ## Lock Screen playback
 
-`VideoRenderer` feeds `AVAssetReader` samples into an `AVSampleBufferDisplayLayer`
-controlled by a `CMTimebase`:
+`VideoRenderer` owns one `AVSampleBufferRenderSynchronizer` with two renderers
+attached: the display layer's `AVSampleBufferVideoRenderer` and an
+`AVSampleBufferAudioRenderer`. The synchronizer's timebase is the only clock; all rate
+and time changes go through `setClockRate` / `setClockTime`.
 
+- **Shared decode.** Each `AVAssetReader` has a video output (compressed samples) and,
+  when the clip has sound, an audio output (interleaved 32-bit float LPCM).
 - **Gapless loop.** The next reader is prepared ahead of time. At the loop boundary
-  every sample's DTS and PTS are offset by the previous loop's end (`ptsOffset`), so
-  the timebase never resets.
-- **Loop clock.** Each loop start is recorded, with a timeline generation that changes
-  on a clip switch or error reset. `clockSample()` returns the position inside the
-  loop currently on screen, the timebase rate and the generation. It is safe to call
-  from any thread.
+  every video and audio timestamp is offset by the previous loop's end (`ptsOffset`),
+  so the timeline never resets. Audio buffers that cross the video track's end are
+  trimmed with `CMSampleBufferCopySampleBufferForRange`; later buffers are dropped.
+- **Audio pump.** After each video enqueue (and on every fade tick) audio is read up to
+  `max(video enqueued so far, clock + 1 s)` while audible, or up to the video horizon
+  while silent (samples are then read and discarded). Audio never lags the video in
+  the reader, so neither output can stall the other.
 - **Policy ramps.** Rate eases 0 → 1 over 2 s when the lock screen appears and
   1 → 0 over 6 s when it goes away. Ramps start from the current rate, so a reversal
   mid-ramp stays continuous.
-- **Deep pause.** After a paused period the pipeline is torn down. A seamless resume
-  restarts the reader at `timebase − current loop start` and keeps the running
-  timeline.
+- **Deep pause.** After a paused period the readers are torn down and queued audio is
+  flushed. A seamless resume restarts the reader at `clock − current loop start` and
+  keeps the running timeline.
 
-`LockScreenAudioController` state machine (serial queue, 30 Hz tick):
+Audibility (100 Hz envelope on the renderer queue):
 
-| Phase | Behaviour |
+| State | Behaviour |
 |---|---|
-| `waiting` | player paused, gain 0, waiting for video rate ≥ 0.97 |
-| `preparingSeek` | fading out (120 ms) before a seek |
-| `seeking(token)` | exact seek to `loop position + measured seek latency`; stale completions are ignored |
-| `playing` | fade in (450 ms, equal-power), smoothed drift → rate trim, clamped to ±3 %, 12 ms dead band |
+| inactive | audio renderer muted, samples discarded, queue flushed once faded out |
+| active, rate < 0.97 or paused | envelope → 0 (picture still easing in or out) |
+| active, rate ≥ 0.97 | envelope → 1 over 0.5 s, equal-power curve × user volume |
 
-A new generation, a clip change, or a drift above 350 ms sustained for three ticks
-(at most once every 1.5 s) returns the controller to `preparingSeek`. `stopImmediately()`
-zeroes the volume synchronously from any thread before the asynchronous teardown.
+`LockScreenAudioController` activates one renderer (the first non-preview surface)
+while the session is locked and sound is enabled, and deactivates the previous one.
+`stopImmediately()` zeroes the volume of every renderer synchronously from any thread
+before the asynchronous flush.
 
 ## Safety rules
 

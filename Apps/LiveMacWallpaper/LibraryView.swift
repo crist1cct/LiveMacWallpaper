@@ -5,14 +5,15 @@ import WallpaperCore
 /// capsules; search lives in the top bar; clicking any poster opens its page.
 struct LibraryView: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.layout) private var layout
 
-    private let spacing: CGFloat = 28
-    private let minimumCardWidth: CGFloat = 250
+    private var spacing: CGFloat { layout.isCompact ? 18 : 28 }
+    private var minimumCardWidth: CGFloat { layout.isNarrow ? 200 : 240 }
 
     var body: some View {
         GeometryReader { proxy in
             let items = model.filteredMediaItems
-            let layout = gridLayout(for: proxy.size.width)
+            let grid = gridLayout(for: proxy.size.width)
 
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 30) {
@@ -29,7 +30,10 @@ struct LibraryView: View {
                         noResults
                     } else {
                         LazyVGrid(
-                            columns: Array(repeating: GridItem(.fixed(layout.width), spacing: spacing, alignment: .top), count: layout.columns),
+                            columns: Array(
+                                repeating: GridItem(.fixed(grid.width), spacing: spacing, alignment: .top),
+                                count: grid.columns
+                            ),
                             alignment: .leading,
                             spacing: 36
                         ) {
@@ -37,7 +41,7 @@ struct LibraryView: View {
                                 PosterCard(
                                     item: item,
                                     thumbnailURL: model.mediaURLs[item.id]?.thumbnail,
-                                    width: layout.width,
+                                    width: grid.width,
                                     liveOn: model.activeDestinations(of: item)
                                 ) {
                                     withAnimation(TV.pageSpring) { model.openDetail(item) }
@@ -47,7 +51,7 @@ struct LibraryView: View {
                         }
                     }
                 }
-                .padding(.horizontal, TV.pageInset)
+                .padding(.horizontal, layout.inset)
                 .padding(.top, 96)
                 .padding(.bottom, 60)
             }
@@ -60,11 +64,12 @@ struct LibraryView: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .firstTextBaseline, spacing: 14) {
                 Text("Library")
-                    .font(.system(size: 40, weight: .bold))
+                    .font(.system(size: layout.titleSize(40), weight: .bold))
                     .foregroundStyle(.white)
                 Text(count == 1 ? "1 wallpaper" : "\(count) wallpapers")
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(TV.tertiaryText)
+                    .lineLimit(1)
                 Spacer()
                 Button { model.chooseFiles() } label: {
                     Label("Add", systemImage: "plus")
@@ -73,6 +78,8 @@ struct LibraryView: View {
                 .help("Import images or videos (⌘O)")
             }
 
+            // Scrolls sideways instead of overflowing on narrow windows.
+            ScrollView(.horizontal) {
             HStack(spacing: 10) {
                 ForEach(LibraryFilter.allCases) { filter in
                     FilterCapsule(title: filter.title, isSelected: model.libraryFilter == filter) {
@@ -80,11 +87,13 @@ struct LibraryView: View {
                     }
                 }
                 if !model.searchText.isEmpty {
-                    FilterCapsule(title: "„\(model.searchText)” ✕", isSelected: true) {
+                    FilterCapsule(title: "“\(model.searchText)” ✕", isSelected: true) {
                         model.searchText = ""
                     }
                 }
             }
+            }
+            .scrollIndicators(.never)
         }
     }
 
@@ -109,7 +118,7 @@ struct LibraryView: View {
     }
 
     private func gridLayout(for totalWidth: CGFloat) -> (columns: Int, width: CGFloat) {
-        let available = max(minimumCardWidth, totalWidth - TV.pageInset * 2)
+        let available = max(minimumCardWidth, totalWidth - layout.inset * 2)
         let columns = max(1, Int((available + spacing) / (minimumCardWidth + spacing)))
         let width = (available - spacing * CGFloat(columns - 1)) / CGFloat(columns)
         return (columns, floor(width))

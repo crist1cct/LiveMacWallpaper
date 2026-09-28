@@ -3,8 +3,10 @@ LIVE MAC WALLPAPER (LMW) — INSTALLATION
 Requires macOS 15 or later. Lock Screen video requires macOS 26.
 
 1. Quit any running copy of Live Mac Wallpaper.
-2. Drag "Live Mac Wallpaper" into the Applications folder and replace the old copy.
-3. Eject the DMG and open the app from Applications only.
+2. Drag the "Live Mac Wallpaper" folder into Applications and replace the old copy.
+   It installs as /Applications/Live Mac Wallpaper/Live Mac Wallpaper.app.
+   If an older copy exists at /Applications/Live Mac Wallpaper.app, delete it.
+3. Eject the DMG and open the app from that folder.
    On first launch: right-click the app → Open.
 4. Import an image or a video into the Library (⌘O, or drag files into the window).
 5. Click any wallpaper to open its page. Choose Desktop, Screen Saver or

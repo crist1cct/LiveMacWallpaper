@@ -448,15 +448,15 @@ public struct LockScreenExperimentalService: @unchecked Sendable {
 
         categories.append([
             "id": Self.categoryID,
-            "localizedNameKey": "Live Mac Wallpaper",
-            "localizedDescriptionKey": "Personal Lock Screen videos",
+            "localizedNameKey": "LMW",
+            "localizedDescriptionKey": "LMW",
             "preferredOrder": 999,
             "representativeAssetID": assetID,
             "previewImage": previewURL.absoluteString,
             "subcategories": [[
                 "id": Self.subcategoryID,
-                "localizedNameKey": "Live Mac Wallpaper",
-                "localizedDescriptionKey": "Personal Lock Screen videos",
+                "localizedNameKey": "LMW",
+                "localizedDescriptionKey": "LMW",
                 "preferredOrder": 0,
                 "previewImage": previewURL.absoluteString,
                 "representativeAssetID": assetID

@@ -56,9 +56,20 @@ struct MediaAssetURLs: Sendable {
 
 struct ImportJob: Identifiable {
     let id: UUID
-    let title: String
+    var title: String
     var status: String
     var isFailed: Bool
+}
+
+struct YouTubeInstall: Equatable {
+    let url: String
+    let jobID: UUID
+    var metadata: YouTubeMetadata?
+    var phase = "Reading video info"
+    var failure: String?
+    var isFinished = false
+
+    var isRunning: Bool { failure == nil && !isFinished }
 }
 
 @MainActor
@@ -77,6 +88,8 @@ final class AppModel: ObservableObject {
     @Published var displays: [DisplayDescriptor] = DisplayCatalog.connectedDisplays
     @Published var importJobs: [ImportJob] = []
     @Published var isYouTubeSheetPresented = false
+    /// The YouTube install shown in the import sheet; it keeps running if the sheet closes.
+    @Published var youtubeInstall: YouTubeInstall?
     @Published var youtubeHelperStatus: YouTubeHelperStatus = .unavailable
     @Published var isApplying = false
     @Published var applyingDestination: WallpaperDestination?
@@ -214,11 +227,29 @@ final class AppModel: ObservableObject {
     func start() async {
         guard !hasStarted else { return }
         hasStarted = true
+        Self.removeCopyOutsideInstallFolder()
         await refresh()
         isLoading = false
         if Bundle.main.bundleURL.path.hasPrefix("/Volumes/"), bannerMessage == nil {
             bannerMessage = "Move Live Mac Wallpaper to Applications so the video wallpaper also starts automatically after login."
         }
+    }
+
+    /// Since 1.8 the app lives in `/Applications/Live Mac Wallpaper/`. A copy left at
+    /// `/Applications/Live Mac Wallpaper.app` by an older install would register a second
+    /// wallpaper extension with the same identifier, so it is moved to the Trash — only
+    /// when it really is this app and this copy is running from somewhere else.
+    private static func removeCopyOutsideInstallFolder() {
+        let fileManager = FileManager.default
+        let legacy = URL(fileURLWithPath: "/Applications/Live Mac Wallpaper.app", isDirectory: true)
+        let running = Bundle.main.bundleURL.standardizedFileURL
+        // Only an installed copy cleans up (never a development build or the DMG).
+        guard running.path != legacy.path,
+              running.path.hasPrefix("/Applications/"),
+              fileManager.fileExists(atPath: legacy.path),
+              Bundle(url: legacy)?.bundleIdentifier == Bundle.main.bundleIdentifier
+        else { return }
+        try? fileManager.trashItem(at: legacy, resultingItemURL: nil)
     }
 
     func refresh() async {
@@ -295,6 +326,48 @@ final class AppModel: ObservableObject {
                 }
             }
         }
+    }
+
+    /// One-step YouTube install: read the video info (shown in the sheet), then download
+    /// and prepare it. Runs in the model, so closing the sheet doesn't cancel it; progress
+    /// also appears as an import toast.
+    func installYouTube(_ rawURL: String) {
+        let url = rawURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !url.isEmpty, youtubeInstall?.isRunning != true else { return }
+        let jobID = UUID()
+        importJobs.append(ImportJob(id: jobID, title: "YouTube", status: "Reading video info", isFailed: false))
+        youtubeInstall = YouTubeInstall(url: url, jobID: jobID)
+
+        Task {
+            do {
+                let metadata = try await inspectYouTube(url)
+                if let index = importJobs.firstIndex(where: { $0.id == jobID }) {
+                    importJobs[index].title = metadata.title
+                }
+                youtubeInstall?.metadata = metadata
+                try await importYouTube(url) { [weak self] phase in
+                    self?.updateJob(jobID, status: phase)
+                    if self?.youtubeInstall?.jobID == jobID { self?.youtubeInstall?.phase = phase }
+                }
+                removeJob(jobID)
+                if youtubeInstall?.jobID == jobID {
+                    youtubeInstall?.phase = "Added to Library"
+                    youtubeInstall?.isFinished = true
+                }
+                successMessage = "“\(metadata.title)” was added to the Library."
+            } catch {
+                let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                updateJob(jobID, status: message, failed: true)
+                if youtubeInstall?.jobID == jobID { youtubeInstall?.failure = message }
+            }
+        }
+    }
+
+    /// Forget a finished or failed install so the sheet is ready for the next link.
+    func resetYouTubeInstall() {
+        guard youtubeInstall?.isRunning != true else { return }
+        if let job = youtubeInstall?.jobID, youtubeInstall?.failure != nil { removeJob(job) }
+        youtubeInstall = nil
     }
 
     func inspectYouTube(_ url: String) async throws -> YouTubeMetadata {

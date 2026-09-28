@@ -5,21 +5,25 @@ import WallpaperCore
 /// what is live on each surface right now, then shelves.
 struct HomeView: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.layout) private var layout
 
     var body: some View {
         GeometryReader { proxy in
             ScrollView(.vertical) {
-                VStack(alignment: .leading, spacing: 46) {
+                VStack(alignment: .leading, spacing: layout.isCompact ? 34 : 46) {
                     if let hero = model.featuredItem {
-                        HomeHero(item: hero, height: max(460, proxy.size.height * 0.74))
+                        HomeHero(
+                            item: hero,
+                            height: max(layout.isNarrow ? 340 : 420, proxy.size.height * 0.72)
+                        )
                     }
 
                     NowShowingRow()
-                        .padding(.horizontal, TV.pageInset)
+                        .padding(.horizontal, layout.inset)
 
                     let favorites = model.mediaItems.filter(\.isFavorite)
                     if !favorites.isEmpty {
-                        PosterShelf(title: "Favorites", items: favorites) {
+                        PosterShelf(title: "Favorites", items: favorites, cardWidth: layout.shelfCardWidth) {
                             model.libraryFilter = .favorites
                             withAnimation(TV.pageSpring) { model.selectedSection = .library }
                         }
@@ -27,7 +31,12 @@ struct HomeView: View {
 
                     let videos = model.recentItems.filter { $0.kind == .video }
                     if !videos.isEmpty {
-                        PosterShelf(title: "Motion Wallpapers", subtitle: "\(videos.count)", items: videos) {
+                        PosterShelf(
+                            title: "Motion Wallpapers",
+                            subtitle: "\(videos.count)",
+                            items: videos,
+                            cardWidth: layout.shelfCardWidth
+                        ) {
                             model.libraryFilter = .videos
                             withAnimation(TV.pageSpring) { model.selectedSection = .library }
                         }
@@ -35,14 +44,19 @@ struct HomeView: View {
 
                     let images = model.recentItems.filter { $0.kind == .image }
                     if !images.isEmpty {
-                        PosterShelf(title: "Images", subtitle: "\(images.count)", items: images, cardWidth: 250) {
+                        PosterShelf(
+                            title: "Images",
+                            subtitle: "\(images.count)",
+                            items: images,
+                            cardWidth: (layout.shelfCardWidth * 0.84).rounded()
+                        ) {
                             model.libraryFilter = .images
                             withAnimation(TV.pageSpring) { model.selectedSection = .library }
                         }
                     }
 
                     AddContentRow()
-                        .padding(.horizontal, TV.pageInset)
+                        .padding(.horizontal, layout.inset)
                         .padding(.bottom, 60)
                 }
             }
@@ -56,6 +70,7 @@ struct HomeView: View {
 
 private struct HomeHero: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.layout) private var layout
     let item: MediaItem
     let height: CGFloat
     @State private var isMuted = true
@@ -95,7 +110,7 @@ private struct HomeHero: View {
                         .foregroundStyle(TV.secondaryText)
 
                     Text(item.title)
-                        .font(.system(size: 54, weight: .bold))
+                        .font(.system(size: layout.titleSize(54), weight: .bold))
                         .foregroundStyle(.white)
                         .lineLimit(2)
                         .minimumScaleFactor(0.6)
@@ -105,10 +120,11 @@ private struct HomeHero: View {
                         Text(item.metaLine)
                             .font(.system(size: 14, weight: .medium))
                             .foregroundStyle(TV.secondaryText)
+                            .lineLimit(1)
                         ForEach(item.badges, id: \.self) { TVBadge(text: $0) }
                     }
 
-                    HStack(spacing: 12) {
+                    HStack(spacing: layout.isNarrow ? 8 : 12) {
                         if isOnDesktop {
                             Button {
                                 withAnimation(TV.pageSpring) { model.openDetail(item, destination: .desktop) }
@@ -126,12 +142,14 @@ private struct HomeHero: View {
                             .buttonStyle(TVPrimaryButtonStyle())
                             .disabled(model.isApplying)
 
-                            Button {
-                                withAnimation(TV.pageSpring) { model.openDetail(item) }
-                            } label: {
-                                Text("More")
+                            if !layout.isNarrow {
+                                Button {
+                                    withAnimation(TV.pageSpring) { model.openDetail(item) }
+                                } label: {
+                                    Text("More")
+                                }
+                                .buttonStyle(TVGlassButtonStyle())
                             }
-                            .buttonStyle(TVGlassButtonStyle())
                         }
 
                         Button { model.toggleFavorite(item) } label: {
@@ -155,8 +173,8 @@ private struct HomeHero: View {
                     .help(isMuted ? "Unmute preview" : "Mute")
                 }
             }
-            .padding(.horizontal, TV.pageInset)
-            .padding(.bottom, 36)
+            .padding(.horizontal, layout.inset)
+            .padding(.bottom, layout.isCompact ? 24 : 36)
         }
         .frame(height: height)
     }
@@ -167,11 +185,16 @@ private struct HomeHero: View {
 /// What is live on each surface, at a glance. Each tile opens the right page.
 private struct NowShowingRow: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.layout) private var layout
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             TVShelfHeader(title: "On Your Screens")
-            HStack(spacing: 24) {
+            // Three across on wide windows, fewer as the window narrows.
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 220), spacing: layout.isCompact ? 16 : 24)],
+                spacing: layout.isCompact ? 16 : 24
+            ) {
                 ForEach(WallpaperDestination.allCases, id: \.self) { destination in
                     SurfaceTile(destination: destination, item: model.activeMedia(for: destination))
                 }
@@ -248,7 +271,7 @@ struct AddContentRow: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        HStack(spacing: 20) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: 20)], spacing: 16) {
             AddTile(title: "Add from Mac", subtitle: "Images and videos · or drop them here", symbol: "plus") {
                 model.chooseFiles()
             }
@@ -274,8 +297,8 @@ private struct AddTile: View {
                     .frame(width: 48, height: 48)
                     .background(Color.white.opacity(0.1), in: Circle())
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(title).font(.system(size: 15, weight: .semibold))
-                    Text(subtitle).font(.system(size: 12)).foregroundStyle(TV.secondaryText)
+                    Text(title).font(.system(size: 15, weight: .semibold)).lineLimit(1)
+                    Text(subtitle).font(.system(size: 12)).foregroundStyle(TV.secondaryText).lineLimit(2)
                 }
                 Spacer(minLength: 0)
             }

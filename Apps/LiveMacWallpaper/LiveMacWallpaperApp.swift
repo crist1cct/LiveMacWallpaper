@@ -8,10 +8,12 @@ struct LiveMacWallpaperApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(model)
-                .frame(minWidth: 1080, minHeight: 700)
+                .frame(minWidth: 760, idealWidth: 1360, minHeight: 540, idealHeight: 860)
                 .task { await model.start() }
         }
         .windowStyle(.hiddenTitleBar)
+        // The window can't be made smaller than the layout's minimum.
+        .windowResizability(.contentMinSize)
         .defaultSize(width: 1360, height: 860)
         .commands {
             CommandGroup(after: .newItem) {
@@ -61,7 +63,8 @@ struct LiveMacWallpaperApp: App {
         Settings {
             SettingsView(isStandaloneWindow: true)
                 .environmentObject(model)
-                .frame(width: 820, height: 680)
+                .measuresLayout()
+                .frame(minWidth: 560, idealWidth: 820, minHeight: 480, idealHeight: 680)
         }
     }
 }

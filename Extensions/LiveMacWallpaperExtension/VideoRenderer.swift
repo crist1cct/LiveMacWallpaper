@@ -15,6 +15,14 @@ private func setDisallowsVideoLayerDisplayCompositing(_ layer: CALayer, _ flag: 
     unsafeBitCast(imp, to: SetBoolFn.self)(layer, sel, ObjCBool(flag))
 }
 
+/// Plays one clip on one display surface.
+///
+/// Video: `AVAssetReader` → `AVSampleBufferDisplayLayer`, gapless loops by offsetting
+/// sample timestamps. Audio: the SAME reader also decodes the clip's audio track to
+/// LPCM and feeds an `AVSampleBufferAudioRenderer`. The layer's video renderer and the
+/// audio renderer are attached to one `AVSampleBufferRenderSynchronizer`, so picture and
+/// sound share a single clock driven by the audio hardware. There is no second player
+/// to keep in sync, no drift correction and no seeking.
 final class VideoRenderer: @unchecked Sendable {
     /// Process-wide instance counter so log lines can be attributed to a specific
     /// renderer object (to catch stale/duplicate renderers from acquire races).
@@ -22,11 +30,20 @@ final class VideoRenderer: @unchecked Sendable {
     let debugID: Int = VideoRenderer.idCounter.withLock { $0 += 1; return $0 }
 
     let displayLayer: AVSampleBufferDisplayLayer
+    /// Read-only view of the playback clock (the synchronizer's timebase). Mutate it
+    /// only through `setClockRate` / `setClockTime`.
     let timebase: CMTimebase
+    private let synchronizer = AVSampleBufferRenderSynchronizer()
+    private let audioRenderer = AVSampleBufferAudioRenderer()
     private let renderer: AVSampleBufferVideoRenderer
     private let stillFrameLayer: CALayer
     private var asset: AVURLAsset
     private var videoTrack: AVAssetTrack
+    /// First audio track of `asset`, if the clip has sound.
+    private var audioTrack: AVAssetTrack?
+    /// End of the video track in clip time. Audio past this point is cut so the next
+    /// loop's audio never overlaps the previous one.
+    private var clipEnd: CMTime
     private let queue = DispatchQueue(label: "video-renderer", qos: .userInitiated)
     private var isRunning = true
     private(set) var isPaused = false
@@ -38,6 +55,19 @@ final class VideoRenderer: @unchecked Sendable {
     private var currentOutput: AVAssetReaderTrackOutput?
     private var nextReader: AVAssetReader?
     private var nextOutput: AVAssetReaderTrackOutput?
+
+    // Audio path — all touched only on `queue`.
+    private var currentAudioOutput: AVAssetReaderTrackOutput?
+    private var nextAudioOutput: AVAssetReaderTrackOutput?
+    private var nextTracks: TrackSet?
+    /// Next audio buffer, already offset onto the running timeline, not yet enqueued.
+    private var pendingAudio: CMSampleBuffer?
+    /// Whether this renderer's audio should be audible (the lock-screen audio owner).
+    private var audioActive = false
+    private var audioVolume: Float = 1
+    /// 0…1 envelope applied on top of `audioVolume`.
+    private var audioGain: Double = 0
+    private var audioFadeTimer: (any DispatchSourceTimer)?
 
     /// A renderer `flush` (decoder reset) is the one async hop in the pipeline, and
     /// TWO overlapping flushes corrupt the renderer (rapid-switch breakage). These two
@@ -69,17 +99,36 @@ final class VideoRenderer: @unchecked Sendable {
         var assetURL: URL?
     }
 
-    /// A consistent reading of the video clock, used to slave audio to the picture.
-    struct ClockSample: Sendable {
-        /// Seconds into the clip that is on screen right now (0 ..< clip duration).
-        let loopPosition: Double
-        /// Current timebase rate — 0 while paused, easing between 0 and 1 during ramps.
-        let rate: Double
-        /// Changes when the timeline restarts from 0 (switch, recovery).
-        let generation: Int
-        /// File the renderer is decoding (may be a lower-frame-rate variant).
-        let assetURL: URL
+    /// Tracks of one asset, loaded together.
+    struct TrackSet: @unchecked Sendable {
+        let video: AVAssetTrack
+        let audio: AVAssetTrack?
+        let clipEnd: CMTime
     }
+
+    /// Readers are built with both outputs so audio and video come from one decode pass.
+    private struct ReaderSet {
+        let reader: AVAssetReader
+        let video: AVAssetReaderTrackOutput
+        let audio: AVAssetReaderTrackOutput?
+    }
+
+    /// Interleaved 32-bit float PCM at the source rate and channel layout.
+    private static let audioOutputSettings: [String: Any] = [
+        AVFormatIDKey: kAudioFormatLinearPCM,
+        AVLinearPCMBitDepthKey: 32,
+        AVLinearPCMIsFloatKey: true,
+        AVLinearPCMIsBigEndianKey: false,
+        AVLinearPCMIsNonInterleaved: false,
+    ]
+
+    /// How far ahead of the clock audio is queued while audible.
+    private static let audioLead: Double = 1.0
+    private static let audioFadeInDuration: Double = 0.5
+    private static let audioFadeOutDuration: Double = 0.15
+    private static let audioFadeInterval: TimeInterval = 1.0 / 100.0
+    /// The picture must run at (nearly) normal speed before sound is let through.
+    private static let audibleRate: Double = 0.97
 
     /// Called at each loop boundary to select the video URL for the next iteration.
     var variantSelector: (@Sendable () -> URL)?
@@ -90,8 +139,7 @@ final class VideoRenderer: @unchecked Sendable {
         stillImage: CGImage? = nil,
     ) async throws -> VideoRenderer {
         let asset = AVURLAsset(url: videoURL)
-        let tracks = try await asset.loadTracks(withMediaType: .video)
-        guard let track = tracks.first else {
+        guard let tracks = await loadTracks(asset) else {
             throw CocoaError(.fileReadCorruptFile, userInfo: [
                 NSLocalizedDescriptionKey: "No video track found in \(videoURL.lastPathComponent)",
             ])
@@ -118,7 +166,7 @@ final class VideoRenderer: @unchecked Sendable {
             rootLayer: rootLayer,
             displayLayer: displayLayer,
             asset: asset,
-            videoTrack: track,
+            tracks: tracks,
             stillImage: stillImage,
         )
     }
@@ -127,13 +175,15 @@ final class VideoRenderer: @unchecked Sendable {
         rootLayer: CALayer,
         displayLayer: AVSampleBufferDisplayLayer,
         asset: AVURLAsset,
-        videoTrack: AVAssetTrack,
+        tracks: TrackSet,
         stillImage: CGImage?,
     ) {
         self.displayLayer = displayLayer
         self.renderer = displayLayer.sampleBufferRenderer
         self.asset = asset
-        self.videoTrack = videoTrack
+        self.videoTrack = tracks.video
+        self.audioTrack = tracks.audio
+        self.clipEnd = tracks.clipEnd
 
         self.stillFrameLayer = CALayer()
         stillFrameLayer.frame = rootLayer.bounds
@@ -142,19 +192,19 @@ final class VideoRenderer: @unchecked Sendable {
         stillFrameLayer.opacity = 0
         stillFrameLayer.name = "livemacwallpaper.stillFrame"
 
-        var tb: CMTimebase?
-        CMTimebaseCreateWithSourceClock(
-            allocator: kCFAllocatorDefault,
-            sourceClock: CMClockGetHostTimeClock(),
-            timebaseOut: &tb,
-        )
-        self.timebase = tb!
-        CMTimebaseSetTime(timebase, time: .zero)
-        // Rate stays 0 until start() — prevents the timebase from advancing
-        // during the async gap between init and start, which would cause
-        // the first batch of frames to be considered "late" and dropped.
-        CMTimebaseSetRate(timebase, rate: 0.0)
-        displayLayer.controlTimebase = timebase
+        // One clock for picture and sound: the layer's video renderer and the audio
+        // renderer are both attached to the same synchronizer, whose timebase follows
+        // the audio device clock. Every frame is presented on the audio timeline.
+        self.timebase = synchronizer.timebase
+        audioRenderer.volume = 0
+        audioRenderer.isMuted = true
+        audioRenderer.audioTimePitchAlgorithm = .timeDomain
+        synchronizer.addRenderer(renderer)
+        synchronizer.addRenderer(audioRenderer)
+        // Rate stays 0 until start() — prevents the clock from advancing during the
+        // async gap between init and start, which would cause the first batch of
+        // frames to be considered "late" and dropped.
+        synchronizer.setRate(0, time: .zero)
 
         // Install the layers and seed the still in ONE action-free transaction, so
         // Core Animation doesn't play an implicit "onOrderIn" animation (the video
@@ -204,14 +254,13 @@ final class VideoRenderer: @unchecked Sendable {
         queue.async { [weak self] in
             guard let self else { onFirstFrameReady?(); return }
             guard isRunning else { traceLog("  [start #\(debugID)] aborted — already stopped"); onFirstFrameReady?(); return }
-            guard let reader = try? AVAssetReader(asset: asset) else { onFirstFrameReady?(); return }
-            let output = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: nil)
-            output.alwaysCopiesSampleData = false
-            reader.add(output)
+            guard let set = makeReaderSet(asset: asset, video: videoTrack, audio: audioTrack) else { onFirstFrameReady?(); return }
+            let reader = set.reader
+            let output = set.video
             reader.startReading()
 
-            // Reset timebase BEFORE first enqueue so the frame isn't seen as late.
-            CMTimebaseSetTime(timebase, time: .zero)
+            // Reset the clock BEFORE first enqueue so the frame isn't seen as late.
+            setClockTime(.zero)
 
             // Enqueue the first frame and flush it to the render server inside an
             // action-free transaction, so the context is genuinely displaying video
@@ -226,12 +275,14 @@ final class VideoRenderer: @unchecked Sendable {
 
             currentReader = reader
             currentOutput = output
+            currentAudioOutput = set.audio
+            pendingAudio = nil
             ptsOffset = .zero
             lastEnqueuedEnd = .zero
             resetLoopClock()
 
-            // Begin advancing the timebase — playback starts.
-            CMTimebaseSetRate(timebase, rate: 1.0)
+            // Begin advancing the clock — playback starts.
+            setClockRate(1.0)
 
             // The context now holds a live, composited video frame — release the gate so
             // the acquire can reply and the agent can swap to us.
@@ -284,12 +335,12 @@ final class VideoRenderer: @unchecked Sendable {
                 return
             }
             let newAsset = AVURLAsset(url: url)
-            guard let track = Self.loadFirstVideoTrackBlocking(newAsset) else {
+            guard let tracks = Self.loadTracksBlocking(newAsset) else {
                 traceLog("  [switchVideo #\(debugID)] no video track in \(url.lastPathComponent)")
                 return
             }
             asset = newAsset
-            videoTrack = track
+            adopt(tracks)
             traceLog("  [switchVideo #\(debugID)] restarting from 0 → \(url.lastPathComponent)")
             restartWithCurrentAsset()
         }
@@ -312,21 +363,80 @@ final class VideoRenderer: @unchecked Sendable {
         }
     }
 
-    /// Load the first video track synchronously. Call ONLY from the renderer's serial
-    /// `queue` — it blocks that (real, owned) thread on a semaphore while AVFoundation
-    /// loads the track on its own internal queue, so there's no cooperative-executor
-    /// starvation and no out-of-order Task completion. Local files load in a few ms.
-    private static func loadFirstVideoTrackBlocking(_ asset: AVURLAsset) -> AVAssetTrack? {
-        traceLog("  [load] blocking-load START \(asset.url.lastPathComponent) (queue will block until AVF replies)")
+    /// Load the video track, the first audio track and the video's end time.
+    private static func loadTracks(_ asset: AVURLAsset) async -> TrackSet? {
+        guard let video = try? await asset.loadTracks(withMediaType: .video).first else { return nil }
+        let audio = (try? await asset.loadTracks(withMediaType: .audio))?.first
+        let range = try? await video.load(.timeRange)
+        let end = range.map { CMTimeRangeGetEnd($0) } ?? .invalid
+        return TrackSet(video: video, audio: audio, clipEnd: end.isNumeric ? end : .invalid)
+    }
+
+    private final class TrackBox: @unchecked Sendable {
+        let asset: AVURLAsset
+        var result: TrackSet?
+        init(asset: AVURLAsset) { self.asset = asset }
+    }
+
+    /// Blocking variant for the renderer's serial `queue`: it blocks that (real, owned)
+    /// thread while AVFoundation loads the tracks, so there's no cooperative-executor
+    /// starvation and switches stay strictly ordered. Local files load in a few ms.
+    private static func loadTracksBlocking(_ asset: AVURLAsset) -> TrackSet? {
+        traceLog("  [load] blocking-load START \(asset.url.lastPathComponent)")
+        let box = TrackBox(asset: asset)
         let sem = DispatchSemaphore(value: 0)
-        nonisolated(unsafe) var result: AVAssetTrack?
-        asset.loadTracks(withMediaType: .video) { tracks, _ in
-            result = tracks?.first
+        Task.detached {
+            box.result = await VideoRenderer.loadTracks(box.asset)
             sem.signal()
         }
         sem.wait()
-        traceLog("  [load] blocking-load DONE \(asset.url.lastPathComponent) track=\(result != nil ? "ok" : "nil")")
-        return result
+        traceLog("  [load] blocking-load DONE \(asset.url.lastPathComponent) video=\(box.result != nil) audio=\(box.result?.audio != nil)")
+        return box.result
+    }
+
+    /// Make `tracks` the current clip's tracks. Must run on `queue`.
+    private func adopt(_ tracks: TrackSet) {
+        videoTrack = tracks.video
+        audioTrack = tracks.audio
+        clipEnd = tracks.clipEnd
+    }
+
+    /// Build a reader with a video output and, when the clip has sound, an LPCM audio
+    /// output. `start` limits reading to the clip from that time on.
+    private func makeReaderSet(
+        asset: AVURLAsset,
+        video: AVAssetTrack,
+        audio: AVAssetTrack?,
+        from start: CMTime? = nil,
+    ) -> ReaderSet? {
+        guard let reader = try? AVAssetReader(asset: asset) else { return nil }
+        if let start {
+            reader.timeRange = CMTimeRange(start: start, duration: .positiveInfinity)
+        }
+        let videoOutput = AVAssetReaderTrackOutput(track: video, outputSettings: nil)
+        videoOutput.alwaysCopiesSampleData = false
+        reader.add(videoOutput)
+        var audioOutput: AVAssetReaderTrackOutput?
+        if let audio {
+            let output = AVAssetReaderTrackOutput(track: audio, outputSettings: Self.audioOutputSettings)
+            output.alwaysCopiesSampleData = false
+            if reader.canAdd(output) {
+                reader.add(output)
+                audioOutput = output
+            }
+        }
+        return ReaderSet(reader: reader, video: videoOutput, audio: audioOutput)
+    }
+
+    // MARK: - Clock
+
+    /// All clock changes go through the synchronizer so the audio renderer follows.
+    private func setClockRate(_ rate: Double) {
+        synchronizer.rate = Float(rate)
+    }
+
+    private func setClockTime(_ time: CMTime) {
+        synchronizer.setRate(synchronizer.rate, time: time)
     }
 
     /// Stop playback. Dispatches synchronously to the renderer queue to ensure
@@ -334,11 +444,19 @@ final class VideoRenderer: @unchecked Sendable {
     func stop() {
         extensionLog("  [stop #\(debugID)] stopping renderer for \(asset.url.lastPathComponent)")
         cancelDeepPauseTimer()
+        silenceAudioNow()
         queue.sync {
             isRunning = false
             renderer.stopRequestingMediaData()
             currentReader?.cancelReading()
             nextReader?.cancelReading()
+            stopAudioFade()
+            audioActive = false
+            pendingAudio = nil
+            currentAudioOutput = nil
+            nextAudioOutput = nil
+            audioRenderer.flush()
+            synchronizer.setRate(0, time: CMTimebaseGetTime(timebase))
         }
         // Clean up layers from the layer tree
         displayLayer.removeFromSuperlayer()
@@ -347,24 +465,6 @@ final class VideoRenderer: @unchecked Sendable {
 
     var playbackTimeSeconds: Double {
         CMTimebaseGetTime(timebase).seconds
-    }
-
-    /// Where in the clip the displayed picture is, independent of how many times it
-    /// has looped. Safe from any thread.
-    func clockSample() -> ClockSample? {
-        let now = CMTimebaseGetTime(timebase).seconds
-        guard now.isFinite else { return nil }
-        let rate = CMTimebaseGetRate(timebase)
-        return loopClock.withLock { state in
-            guard let url = state.assetURL else { return nil }
-            let start = state.starts.last(where: { $0 <= now + 0.0005 }) ?? state.starts.first ?? 0
-            return ClockSample(
-                loopPosition: max(0, now - start),
-                rate: rate.isFinite ? rate : 0,
-                generation: state.generation,
-                assetURL: url
-            )
-        }
     }
 
     /// Loop start in effect at `time` (timebase seconds).
@@ -401,7 +501,7 @@ final class VideoRenderer: @unchecked Sendable {
         traceLog("  [pause #\(debugID)]")
         isPaused = true
         cancelRamp()
-        CMTimebaseSetRate(timebase, rate: 0.0)
+        setClockRate(0.0)
         generateStillFrame()
         scheduleDeepPause()
     }
@@ -420,10 +520,10 @@ final class VideoRenderer: @unchecked Sendable {
             queue.async { [weak self] in
                 guard let self, isRunning else { return }
                 recreatePlayback(seamlessResume: true)
-                CMTimebaseSetRate(timebase, rate: 1.0)
+                setClockRate(1.0)
             }
         } else {
-            CMTimebaseSetRate(timebase, rate: 1.0)
+            setClockRate(1.0)
         }
     }
 
@@ -491,7 +591,7 @@ final class VideoRenderer: @unchecked Sendable {
             queue.async { [weak self] in
                 guard let self, isRunning else { return }
                 recreatePlayback(seamlessResume: true)
-                CMTimebaseSetRate(timebase, rate: 1.0)
+                setClockRate(1.0)
             }
             return
         }
@@ -510,7 +610,7 @@ final class VideoRenderer: @unchecked Sendable {
         let start = Double(CMTimebaseGetRate(timebase))
         let distance = abs(target - start)
         guard distance > 0.001 else {
-            CMTimebaseSetRate(timebase, rate: target)
+            setClockRate(target)
             completion?()
             return
         }
@@ -519,7 +619,7 @@ final class VideoRenderer: @unchecked Sendable {
 
         // First step lands immediately so a resume never sits on a dead frame.
         if target > start {
-            CMTimebaseSetRate(timebase, rate: max(start, 0.01))
+            setClockRate(max(start, 0.01))
         }
 
         let timer = DispatchSource.makeTimerSource(queue: queue)
@@ -532,7 +632,7 @@ final class VideoRenderer: @unchecked Sendable {
             step += 1
             let progress = Double(step) / Double(totalSteps)
             let rate = RampMath.rate(from: start, to: target, progress: progress)
-            CMTimebaseSetRate(timebase, rate: rate)
+            setClockRate(rate)
 
             if step >= totalSteps {
                 timer.cancel()
@@ -586,6 +686,11 @@ final class VideoRenderer: @unchecked Sendable {
         currentOutput = nil
         nextReader = nil
         nextOutput = nil
+        currentAudioOutput = nil
+        nextAudioOutput = nil
+        nextTracks = nil
+        pendingAudio = nil
+        audioRenderer.flush()
         extensionLog("  [Renderer] Deep-paused — freed asset readers")
     }
 
@@ -604,6 +709,10 @@ final class VideoRenderer: @unchecked Sendable {
         nextReader?.cancelReading()
         nextReader = nil
         nextOutput = nil
+        nextAudioOutput = nil
+        nextTracks = nil
+        pendingAudio = nil
+        audioRenderer.flush()
 
         let resumeTime = CMTimebaseGetTime(timebase)
         let continuing = seamlessResume && resumeTime.isNumeric && resumeTime > .zero
@@ -618,23 +727,26 @@ final class VideoRenderer: @unchecked Sendable {
         // Keep the last displayed frame when continuing (no black); clear it on error reset.
         renderer.flush(removingDisplayedImage: !continuing)
 
-        guard let reader = try? AVAssetReader(asset: asset) else {
+        // Resume reading from the paused position (AVAssetReader seeks to the enclosing
+        // keyframe and emits from here) so playback continues instead of restarting.
+        guard let set = makeReaderSet(
+            asset: asset,
+            video: videoTrack,
+            audio: audioTrack,
+            from: continuing ? clipPosition : nil
+        ) else {
             extensionLog("  [recreatePlayback] FAILED to create AVAssetReader for \(asset.url.lastPathComponent)")
             currentReader = nil
             currentOutput = nil
+            currentAudioOutput = nil
             return
         }
-        if continuing {
-            // Resume reading from the paused position (AVAssetReader seeks to the enclosing
-            // keyframe and emits from here) so playback continues instead of restarting.
-            reader.timeRange = CMTimeRange(start: clipPosition, duration: .positiveInfinity)
-        }
-        let output = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: nil)
-        output.alwaysCopiesSampleData = false
-        reader.add(output)
+        let reader = set.reader
+        let output = set.video
         reader.startReading()
         currentReader = reader
         currentOutput = output
+        currentAudioOutput = set.audio
 
         // Samples keep their place on the running timeline: clip time + loop start.
         ptsOffset = loopStart
@@ -642,7 +754,7 @@ final class VideoRenderer: @unchecked Sendable {
         if continuing {
             resetLoopClock(start: loopStart.seconds, newTimeline: false)
         } else {
-            CMTimebaseSetTime(timebase, time: .zero)
+            setClockTime(.zero)
             resetLoopClock()
         }
 
@@ -689,12 +801,17 @@ final class VideoRenderer: @unchecked Sendable {
         flushInFlight = true
         // Freeze the clock up front so it can't advance past PTS 0 during the async
         // flush — otherwise the first frames arrive "late" and get dropped.
-        CMTimebaseSetRate(timebase, rate: 0.0)
+        setClockRate(0.0)
         renderer.stopRequestingMediaData()
         currentReader?.cancelReading()
         nextReader?.cancelReading()
         nextReader = nil
         nextOutput = nil
+        nextAudioOutput = nil
+        nextTracks = nil
+        currentAudioOutput = nil
+        pendingAudio = nil
+        audioRenderer.flush()
 
         traceLog("  [restart #\(debugID)] flushing decoder for \(asset.url.lastPathComponent)")
         // Keep the currently displayed frame (no blank) — the first new frame below is
@@ -715,23 +832,24 @@ final class VideoRenderer: @unchecked Sendable {
                     return
                 }
                 guard isRunning else { return }
-                guard let reader = try? AVAssetReader(asset: asset) else {
+                guard let set = makeReaderSet(asset: asset, video: videoTrack, audio: audioTrack) else {
                     extensionLog("  [restart #\(debugID)] FAILED to create AVAssetReader for \(asset.url.lastPathComponent)")
                     currentReader = nil
                     currentOutput = nil
                     return
                 }
-                let output = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: nil)
-                output.alwaysCopiesSampleData = false
-                reader.add(output)
+                let reader = set.reader
+                let output = set.video
                 reader.startReading()
                 currentReader = reader
                 currentOutput = output
+                currentAudioOutput = set.audio
+                pendingAudio = nil
 
                 // Fresh timeline from 0.
                 ptsOffset = .zero
                 lastEnqueuedEnd = .zero
-                CMTimebaseSetTime(timebase, time: .zero)
+                setClockTime(.zero)
                 resetLoopClock()
 
                 // Enqueue the first (IDR) frame while the clock is still frozen, exactly
@@ -751,7 +869,7 @@ final class VideoRenderer: @unchecked Sendable {
                     }
                 }
 
-                CMTimebaseSetRate(timebase, rate: isPaused ? 0.0 : 1.0)
+                setClockRate(isPaused ? 0.0 : 1.0)
                 traceLog("  [restart #\(debugID)] playing \(asset.url.lastPathComponent) rate=\(isPaused ? 0 : 1) rendererStatus=\(renderer.status.rawValue) requiresFlush=\(renderer.requiresFlushToResumeDecoding) readerStatus=\(reader.status.rawValue) err=\(renderer.error?.localizedDescription ?? "-")")
                 feedLogBudget = 4
                 prepareNextReader()
@@ -771,29 +889,31 @@ final class VideoRenderer: @unchecked Sendable {
             let nextURL = variantSelector?()
             if let nextURL, nextURL != asset.url {
                 let newAsset = AVURLAsset(url: nextURL)
-                guard let track = Self.loadFirstVideoTrackBlocking(newAsset) else {
+                guard let tracks = Self.loadTracksBlocking(newAsset) else {
                     traceLog("  [Renderer] No video track in variant: \(nextURL.lastPathComponent)")
                     return
                 }
-                installNextReader(asset: newAsset, track: track)
+                installNextReader(asset: newAsset, tracks: tracks)
             } else {
-                installNextReader(asset: asset, track: videoTrack)
+                installNextReader(
+                    asset: asset,
+                    tracks: TrackSet(video: videoTrack, audio: audioTrack, clipEnd: clipEnd)
+                )
             }
         }
     }
 
     /// Build an asset reader on the renderer queue and store it as the
     /// preloaded next reader. Must run on `queue`.
-    private func installNextReader(asset: AVURLAsset, track: AVAssetTrack) {
-        guard let reader = try? AVAssetReader(asset: asset) else {
+    private func installNextReader(asset: AVURLAsset, tracks: TrackSet) {
+        guard let set = makeReaderSet(asset: asset, video: tracks.video, audio: tracks.audio) else {
             traceLog("  [Renderer] Failed to create next reader")
             return
         }
-        let output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
-        output.alwaysCopiesSampleData = false
-        reader.add(output)
-        nextReader = reader
-        nextOutput = output
+        nextReader = set.reader
+        nextOutput = set.video
+        nextAudioOutput = set.audio
+        nextTracks = tracks
     }
 
     /// Swap to the preloaded next reader at a loop boundary.
@@ -805,27 +925,32 @@ final class VideoRenderer: @unchecked Sendable {
         ptsOffset = lastEnqueuedEnd
         recordLoopStart(ptsOffset.seconds)
 
+        // Whatever audio the finished loop still had is past the clip end; drop it so
+        // the next loop's sound starts exactly where its picture starts.
+        pendingAudio = nil
+
         if let nr = nextReader, let no = nextOutput {
             if let nrAsset = nr.asset as? AVURLAsset, nrAsset.url != asset.url {
                 asset = nrAsset
-                videoTrack = no.track
                 traceLog("  [Renderer] Switched variant: \(nrAsset.url.lastPathComponent)")
             }
+            if let tracks = nextTracks { adopt(tracks) }
             currentReader = nr
             currentOutput = no
+            currentAudioOutput = nextAudioOutput
             nextReader = nil
             nextOutput = nil
+            nextAudioOutput = nil
+            nextTracks = nil
         } else {
             traceLog("  [Renderer] Next reader not ready, creating synchronously")
-            guard let reader = try? AVAssetReader(asset: asset) else {
+            guard let set = makeReaderSet(asset: asset, video: videoTrack, audio: audioTrack) else {
                 traceLog("  [Renderer] Failed to create fallback reader")
                 return
             }
-            let output = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: nil)
-            output.alwaysCopiesSampleData = false
-            reader.add(output)
-            currentReader = reader
-            currentOutput = output
+            currentReader = set.reader
+            currentOutput = set.video
+            currentAudioOutput = set.audio
         }
 
         currentReader?.startReading()
@@ -881,6 +1006,7 @@ final class VideoRenderer: @unchecked Sendable {
                     }
 
                     renderer.enqueue(adjusted)
+                    pumpAudio()
                 } else {
                     // Dispatch async: requestMediaDataWhenReady is not reentrant.
                     if feedLogBudget > 0 {
@@ -893,6 +1019,7 @@ final class VideoRenderer: @unchecked Sendable {
                     return
                 }
             }
+            pumpAudio()
             if feedLogBudget > 0 {
                 feedLogBudget -= 1
                 traceLog("  [feed #\(debugID)] tick enqueued=\(enqueuedThisTick) status=\(renderer.status.rawValue) requiresFlush=\(renderer.requiresFlushToResumeDecoding) ready=\(renderer.isReadyForMoreMediaData) timebase=\(CMTimebaseGetTime(timebase).seconds)")
@@ -932,7 +1059,176 @@ final class VideoRenderer: @unchecked Sendable {
     /// Reset everything and restart playback from scratch after a decoder error.
     private func recoverFromError() {
         recreatePlayback()
-        CMTimebaseSetRate(timebase, rate: isPaused ? 0.0 : 1.0)
+        setClockRate(isPaused ? 0.0 : 1.0)
+    }
+
+    // MARK: - Audio
+
+    /// Make this renderer's sound audible (or not). Audio fades in once the picture runs
+    /// at normal speed and fades out when deactivated. Thread-safe.
+    func setAudio(active: Bool, volume: Float) {
+        queue.async { [weak self] in
+            guard let self, isRunning else { return }
+            audioVolume = max(0, min(1, volume))
+            if active != audioActive {
+                audioActive = active
+                traceLog("  [audio #\(debugID)] active=\(active) hasTrack=\(audioTrack != nil)")
+            }
+            startAudioFade()
+        }
+    }
+
+    /// Cut the sound this instant (unlock, sleep). Safe from any thread; the volume is
+    /// zeroed before returning, the rest of the teardown follows on `queue`.
+    func silenceAudioNow() {
+        audioRenderer.volume = 0
+        audioRenderer.isMuted = true
+        queue.async { [weak self] in
+            guard let self else { return }
+            audioActive = false
+            audioGain = 0
+            stopAudioFade()
+            audioRenderer.flush()
+        }
+    }
+
+    /// Queue decoded audio up to the playback horizon. Must run on `queue`.
+    ///
+    /// Audio and video come from the same reader, so audio is always read at least as
+    /// far as the video that has been enqueued — this keeps the reader's two outputs
+    /// balanced. While inaudible, samples are read and dropped; while audible they go
+    /// to the audio renderer up to `audioLead` seconds ahead of the clock.
+    private func pumpAudio() {
+        guard let output = currentAudioOutput else { return }
+        if audioRenderer.status == .failed {
+            extensionLog("  [audio #\(debugID)] renderer failed: \(audioRenderer.error?.localizedDescription ?? "unknown") → flush")
+            audioRenderer.flush()
+        }
+
+        let videoHorizon = lastEnqueuedEnd.seconds
+        let now = CMTimebaseGetTime(timebase).seconds
+        let limit = audioActive
+            ? max(videoHorizon, (now.isFinite ? now : 0) + Self.audioLead)
+            : videoHorizon
+
+        while true {
+            if pendingAudio == nil {
+                guard let raw = output.copyNextSampleBuffer() else {
+                    currentAudioOutput = nil
+                    return
+                }
+                pendingAudio = prepareAudioSample(raw)
+                if pendingAudio == nil { continue }
+            }
+            guard let sample = pendingAudio else { return }
+            let pts = CMSampleBufferGetPresentationTimeStamp(sample).seconds
+            if pts.isFinite, pts > limit { return }
+            if audioActive {
+                guard audioRenderer.isReadyForMoreMediaData else { return }
+                audioRenderer.enqueue(sample)
+            }
+            pendingAudio = nil
+        }
+    }
+
+    /// Cut audio at the clip's video end and move it onto the running timeline.
+    /// Returns nil for buffers that lie entirely past the end.
+    private func prepareAudioSample(_ raw: CMSampleBuffer) -> CMSampleBuffer? {
+        let pts = CMSampleBufferGetPresentationTimeStamp(raw)
+        guard pts.isValid else { return nil }
+        var sample = raw
+        if clipEnd.isValid {
+            guard pts < clipEnd else { return nil }
+            let duration = CMSampleBufferGetDuration(raw)
+            if duration.isValid, CMTimeAdd(pts, duration) > clipEnd,
+               let trimmed = Self.trimAudio(raw, keeping: CMTimeSubtract(clipEnd, pts)) {
+                sample = trimmed
+            }
+        }
+        return Self.offsetAllTimings(sample, by: ptsOffset)
+    }
+
+    /// First `length` of an LPCM buffer.
+    private static func trimAudio(_ sample: CMSampleBuffer, keeping length: CMTime) -> CMSampleBuffer? {
+        guard let format = CMSampleBufferGetFormatDescription(sample),
+              let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(format)?.pointee,
+              asbd.mSampleRate > 0
+        else { return nil }
+        let total = CMSampleBufferGetNumSamples(sample)
+        let keep = min(total, Int((length.seconds * asbd.mSampleRate).rounded(.down)))
+        guard keep > 0 else { return nil }
+        guard keep < total else { return sample }
+        var out: CMSampleBuffer?
+        CMSampleBufferCopySampleBufferForRange(
+            allocator: nil,
+            sampleBuffer: sample,
+            sampleRange: CFRange(location: 0, length: keep),
+            sampleBufferOut: &out,
+        )
+        return out
+    }
+
+    /// Shift every timing entry (audio buffers carry per-sample timing) by `offset`.
+    private static func offsetAllTimings(_ sample: CMSampleBuffer, by offset: CMTime) -> CMSampleBuffer {
+        guard offset > .zero else { return sample }
+        var count: CMItemCount = 0
+        CMSampleBufferGetSampleTimingInfoArray(sample, entryCount: 0, arrayToFill: nil, entriesNeededOut: &count)
+        guard count > 0 else { return sample }
+        var timings = [CMSampleTimingInfo](repeating: CMSampleTimingInfo(), count: count)
+        CMSampleBufferGetSampleTimingInfoArray(sample, entryCount: count, arrayToFill: &timings, entriesNeededOut: &count)
+        for index in timings.indices {
+            if timings[index].presentationTimeStamp.isValid {
+                timings[index].presentationTimeStamp = CMTimeAdd(timings[index].presentationTimeStamp, offset)
+            }
+            if timings[index].decodeTimeStamp.isValid {
+                timings[index].decodeTimeStamp = CMTimeAdd(timings[index].decodeTimeStamp, offset)
+            }
+        }
+        var out: CMSampleBuffer?
+        CMSampleBufferCreateCopyWithNewTiming(
+            allocator: nil,
+            sampleBuffer: sample,
+            sampleTimingEntryCount: count,
+            sampleTimingArray: &timings,
+            sampleBufferOut: &out,
+        )
+        return out ?? sample
+    }
+
+    /// Volume envelope, evaluated at 100 Hz on `queue` while audio is (or was) audible.
+    private func startAudioFade() {
+        guard audioFadeTimer == nil else { return }
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now(), repeating: Self.audioFadeInterval, leeway: .milliseconds(2))
+        timer.setEventHandler { [weak self] in self?.stepAudioFade() }
+        audioFadeTimer = timer
+        timer.resume()
+    }
+
+    private func stopAudioFade() {
+        audioFadeTimer?.cancel()
+        audioFadeTimer = nil
+    }
+
+    private func stepAudioFade() {
+        let rate = Double(CMTimebaseGetRate(timebase))
+        let audible = audioActive && !isPaused && rate >= Self.audibleRate && audioTrack != nil
+        let target: Double = audible ? 1 : 0
+        if audioGain < target {
+            audioGain = min(target, audioGain + Self.audioFadeInterval / Self.audioFadeInDuration)
+        } else if audioGain > target {
+            audioGain = max(target, audioGain - Self.audioFadeInterval / Self.audioFadeOutDuration)
+        }
+        // Equal-power curve sounds linear to the ear.
+        audioRenderer.volume = audioVolume * Float(sin(audioGain * .pi / 2))
+        audioRenderer.isMuted = audioGain <= 0
+        if audioActive { pumpAudio() }
+
+        if !audioActive, audioGain <= 0 {
+            // Fully faded out: drop queued sound so a later activation starts clean.
+            stopAudioFade()
+            audioRenderer.flush()
+        }
     }
 
     // MARK: - Still Frame

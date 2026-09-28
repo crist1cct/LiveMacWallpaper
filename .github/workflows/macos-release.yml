@@ -109,9 +109,9 @@ jobs:
           trap 'hdiutil detach "$volume"' EXIT
           test -L "$volume/Applications"
           test -f "$volume/INSTALL.txt"
-          codesign --verify --deep --strict "$volume/Live Mac Wallpaper.app"
-          "$volume/Live Mac Wallpaper.app/Contents/Resources/Helpers/yt-dlp_macos" --version
-          "$volume/Live Mac Wallpaper.app/Contents/Resources/Helpers/ffmpeg" -version
+          codesign --verify --deep --strict "$volume/Live Mac Wallpaper/Live Mac Wallpaper.app"
+          "$volume/Live Mac Wallpaper/Live Mac Wallpaper.app/Contents/Resources/Helpers/yt-dlp_macos" --version
+          "$volume/Live Mac Wallpaper/Live Mac Wallpaper.app/Contents/Resources/Helpers/ffmpeg" -version
 
       - name: Upload DMG and checksum
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

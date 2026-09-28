@@ -7,6 +7,7 @@ import WallpaperCore
 /// the left, and each surface (Desktop / Screen Saver / Lock Screen) is one click.
 struct MediaDetailView: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.layout) private var layout
     let item: MediaItem
 
     @State private var isMuted = true
@@ -27,6 +28,7 @@ struct MediaDetailView: View {
             TV.canvas.ignoresSafeArea()
 
             MotionBackdrop(item: item, urls: model.mediaURLs[item.id], isMuted: $isMuted)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea()
                 .id(item.id)
 
@@ -38,6 +40,8 @@ struct MediaDetailView: View {
                 previewHint.transition(.opacity)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
         .background {
             // Esc closes the page (or leaves preview first).
             Button("") { escape() }
@@ -66,8 +70,8 @@ struct MediaDetailView: View {
             LinearGradient(
                 stops: [
                     .init(color: .black.opacity(0.88), location: 0),
-                    .init(color: .black.opacity(0.62), location: 0.38),
-                    .init(color: .clear, location: 0.72)
+                    .init(color: .black.opacity(0.62), location: layout.isCompact ? 0.6 : 0.38),
+                    .init(color: .clear, location: layout.isCompact ? 1 : 0.72)
                 ],
                 startPoint: .leading,
                 endPoint: .trailing
@@ -105,7 +109,7 @@ struct MediaDetailView: View {
             .help("Full-window preview")
         }
         .padding(.leading, 84) // clear of the window's traffic lights
-        .padding(.trailing, 28)
+        .padding(.trailing, layout.isCompact ? 14 : 28)
         .padding(.top, 14)
     }
 
@@ -137,9 +141,9 @@ struct MediaDetailView: View {
                     actions
                 }
                 .frame(maxWidth: 560, alignment: .leading)
-                .padding(.horizontal, TV.pageInset)
-                .padding(.top, 90)
-                .padding(.bottom, 48)
+                .padding(.horizontal, layout.inset)
+                .padding(.top, 76)
+                .padding(.bottom, layout.isCompact ? 28 : 48)
                 // Sit at the bottom-left like a title page; scroll only when the window is short.
                 .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: .bottomLeading)
             }
@@ -159,7 +163,7 @@ struct MediaDetailView: View {
                 }
             }
             Text(item.title)
-                .font(.system(size: 50, weight: .bold))
+                .font(.system(size: layout.titleSize(50), weight: .bold))
                 .foregroundStyle(.white)
                 .lineLimit(3)
                 .minimumScaleFactor(0.6)
@@ -167,6 +171,7 @@ struct MediaDetailView: View {
                 Text(item.metaLine)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(TV.secondaryText)
+                    .lineLimit(1)
                 ForEach(item.badges, id: \.self) { TVBadge(text: $0) }
             }
             if !liveOn.isEmpty {

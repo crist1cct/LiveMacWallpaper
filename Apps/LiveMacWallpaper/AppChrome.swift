@@ -17,6 +17,7 @@ enum TV {
     static let tertiaryText = Color.white.opacity(0.40)
     static let accent = Color.white
 
+    /// Widest page inset; the actual inset comes from `LayoutMetrics`.
     static let pageInset: CGFloat = 56
     static let cardRadius: CGFloat = 14
     static let panelRadius: CGFloat = 24
@@ -30,6 +31,70 @@ enum TV {
             return String(format: "%d:%02d:%02d", value / 3600, (value % 3600) / 60, value % 60)
         }
         return String(format: "%d:%02d", value / 60, value % 60)
+    }
+}
+
+// MARK: - Responsive layout
+
+/// Sizes derived from the current window width. Set once at the root and read by every
+/// page, so margins, type and grids shrink together instead of overflowing.
+struct LayoutMetrics: Equatable {
+    var width: CGFloat = 1360
+
+    /// Page side margin: 20 pt on narrow windows up to 56 pt on wide ones.
+    var inset: CGFloat { min(TV.pageInset, max(20, (width * 0.045).rounded())) }
+    var isCompact: Bool { width < 980 }
+    var isNarrow: Bool { width < 820 }
+
+    /// Scales a display font size between 62 % (narrow) and 100 % (≥ 1280 pt).
+    func titleSize(_ base: CGFloat) -> CGFloat {
+        let factor = min(1, max(0.62, (width - 560) / 720))
+        return (base * factor).rounded()
+    }
+
+    /// Card width for horizontal shelves.
+    var shelfCardWidth: CGFloat { isNarrow ? 220 : (isCompact ? 250 : 300) }
+}
+
+private struct LayoutMetricsKey: EnvironmentKey {
+    static let defaultValue = LayoutMetrics()
+}
+
+extension EnvironmentValues {
+    var layout: LayoutMetrics {
+        get { self[LayoutMetricsKey.self] }
+        set { self[LayoutMetricsKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// Measures the available width and publishes `LayoutMetrics` to the subtree.
+    func measuresLayout() -> some View {
+        modifier(LayoutMeasurer())
+    }
+
+    /// Fills the proposed frame without ever reporting a larger size. Use for images and
+    /// videos shown with aspect-fill, which would otherwise push the layout wider or
+    /// taller than the window.
+    func fillWithoutOverflow() -> some View {
+        Color.clear
+            .overlay { self }
+            .clipped()
+    }
+}
+
+private struct LayoutMeasurer: ViewModifier {
+    @State private var metrics = LayoutMetrics()
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.layout, metrics)
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.width
+            } action: { width in
+                let rounded = width.rounded()
+                if abs(rounded - metrics.width) >= 1 { metrics = LayoutMetrics(width: rounded) }
+            }
     }
 }
 
@@ -257,6 +322,8 @@ struct ArtworkImage: View {
                     .foregroundStyle(TV.tertiaryText)
             }
         }
+        // Aspect-fill artwork must never size its container.
+        .fillWithoutOverflow()
         .task(id: url) {
             guard let url else { image = nil; return }
             if let hit = ArtworkCache.shared.cached(url) { image = hit; return }

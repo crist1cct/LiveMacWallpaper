@@ -151,10 +151,24 @@ if [[ -n "$notary_profile" ]]; then
     spctl --assess --type execute --verbose=2 "$application"
 fi
 staging_directory="$work_directory/staging"
-mkdir -p "$staging_directory"
-ditto --norsrc "$application" "$staging_directory/Live Mac Wallpaper.app"
-ditto --norsrc "$project_root/Distribution/INSTALL.txt" "$staging_directory/INSTALL.txt"
+# The app is installed as a folder: /Applications/Live Mac Wallpaper/ holds the app and
+# its install notes, and the DMG offers that folder next to an Applications shortcut.
+install_folder="$staging_directory/Live Mac Wallpaper"
+mkdir -p "$install_folder"
+ditto --norsrc "$application" "$install_folder/Live Mac Wallpaper.app"
+ditto --norsrc "$project_root/Distribution/INSTALL.txt" "$install_folder/INSTALL.txt"
 ln -s /Applications "$staging_directory/Applications"
+# Give the folder the app's icon (best effort; purely cosmetic).
+app_icon="$install_folder/Live Mac Wallpaper.app/Contents/Resources/AppIcon.icns"
+if [[ -f "$app_icon" ]]; then
+    osascript -l JavaScript - "$app_icon" "$install_folder" <<'JXA' || echo "Warning: could not set the folder icon." >&2
+ObjC.import('AppKit')
+function run(argv) {
+    const image = $.NSImage.alloc.initWithContentsOfFile(argv[0])
+    $.NSWorkspace.sharedWorkspace.setIconForFileOptions(image, argv[1], 0)
+}
+JXA
+fi
 read_write_dmg="$work_directory/release-rw.dmg"
 if [[ "$dmg_layout" == finder ]]; then
     [[ -f "$dmg_background" ]] || fail "Missing DMG background image."
@@ -182,9 +196,8 @@ on run argv
             set icon size of viewOptions to 96
             set text size of viewOptions to 12
             set background picture of viewOptions to file ".background:dmg-background.png" of volumeFolder
-            set position of item "Live Mac Wallpaper.app" of volumeFolder to {250, 300}
+            set position of item "Live Mac Wallpaper" of volumeFolder to {250, 300}
             set position of item "Applications" of volumeFolder to {790, 300}
-            set position of item "INSTALL.txt" of volumeFolder to {520, 480}
             update volumeFolder without registering applications
             delay 1
             close volumeWindow

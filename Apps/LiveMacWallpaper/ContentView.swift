@@ -32,6 +32,7 @@ struct ContentView: View {
             notifications
                 .zIndex(20)
         }
+        .measuresLayout()
         .animation(TV.pageSpring, value: model.selectedSection)
         .animation(TV.pageSpring, value: model.detailMediaID)
         .preferredColorScheme(.dark)
@@ -115,6 +116,7 @@ struct ContentView: View {
 /// Floating tab bar centered over the content.
 private struct TopBar: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.layout) private var layout
     var isSearchFocused: FocusState<Bool>.Binding
 
     var body: some View {
@@ -132,24 +134,34 @@ private struct TopBar: View {
                 .contentShape(Rectangle())
                 .gesture(WindowDragGesture())
 
-            HStack(spacing: 14) {
+            HStack(spacing: layout.isCompact ? 8 : 14) {
                 Spacer().frame(width: 64) // traffic lights
 
                 Spacer(minLength: 0)
 
                 HStack(spacing: 2) {
                     ForEach(AppSection.allCases) { section in
-                        TabItem(section: section, isSelected: model.selectedSection == section) {
+                        TabItem(
+                            section: section,
+                            isSelected: model.selectedSection == section,
+                            horizontalPadding: layout.isCompact ? 12 : 18
+                        ) {
                             model.selectedSection = section
                         }
                     }
                 }
+                .fixedSize()
                 .padding(4)
                 .tvGlassCapsule()
 
                 Spacer(minLength: 0)
 
-                SearchField(text: $model.searchText, isFocused: isSearchFocused) {
+                SearchField(
+                    text: $model.searchText,
+                    isFocused: isSearchFocused,
+                    restingWidth: layout.isNarrow ? 104 : (layout.isCompact ? 124 : 150),
+                    activeWidth: layout.isNarrow ? 160 : (layout.isCompact ? 180 : 220)
+                ) {
                     if model.selectedSection != .library { model.selectedSection = .library }
                 }
 
@@ -168,7 +180,7 @@ private struct TopBar: View {
                 .buttonStyle(TVGlassButtonStyle(circle: true, height: 38))
                 .help("Add images or videos (⌘O)")
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, layout.isCompact ? 12 : 20)
             .padding(.top, 10)
             .frame(maxHeight: .infinity, alignment: .top)
         }
@@ -180,6 +192,7 @@ private struct TopBar: View {
 private struct TabItem: View {
     let section: AppSection
     let isSelected: Bool
+    var horizontalPadding: CGFloat = 18
     let action: () -> Void
     @State private var isHovering = false
 
@@ -188,7 +201,7 @@ private struct TabItem: View {
             Text(section.title)
                 .font(.system(size: 13.5, weight: .semibold))
                 .foregroundStyle(isSelected ? .black : (isHovering ? .white : TV.secondaryText))
-                .padding(.horizontal, 18)
+                .padding(.horizontal, horizontalPadding)
                 .frame(height: 32)
                 .background {
                     if isSelected {
@@ -209,6 +222,8 @@ private struct TabItem: View {
 private struct SearchField: View {
     @Binding var text: String
     var isFocused: FocusState<Bool>.Binding
+    var restingWidth: CGFloat = 150
+    var activeWidth: CGFloat = 220
     let didStartTyping: () -> Void
 
     var body: some View {
@@ -234,7 +249,7 @@ private struct SearchField: View {
             }
         }
         .padding(.horizontal, 14)
-        .frame(width: isFocused.wrappedValue || !text.isEmpty ? 220 : 150, height: 38)
+        .frame(width: isFocused.wrappedValue || !text.isEmpty ? activeWidth : restingWidth, height: 38)
         .tvGlassCapsule()
         .animation(TV.focusSpring, value: isFocused.wrappedValue)
     }

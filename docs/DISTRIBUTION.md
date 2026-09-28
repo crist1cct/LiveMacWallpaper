@@ -25,10 +25,10 @@ bash Tools/package_release.sh
 ```
 
 Version and build number come from `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`
-in `project.yml`. At 1.7.0 / 170 the results are:
+in `project.yml`. At 1.8.0 / 180 the results are:
 
-- `build/Live-Mac-Wallpaper-1.7.0.dmg`
-- `build/Live-Mac-Wallpaper-1.7.0.dmg.sha256`
+- `build/Live-Mac-Wallpaper-1.8.0.dmg`
+- `build/Live-Mac-Wallpaper-1.8.0.dmg.sha256`
 
 This default build is ad-hoc signed, **not notarized**. It is useful for development
 and packaging checks. Gatekeeper may block it on another Mac, and `WallpaperAgent`
@@ -39,7 +39,9 @@ builds all targets for arm64 and x86_64, verifies their embedded versions and
 architectures, signs from the inside out, and verifies the finished app and DMG.
 It includes the Desktop login item, Screen Saver, wallpaper extension, cleanup tool,
 yt-dlp, FFmpeg and its corresponding source/license/build recipe, plus the Phosphene
-license. The disk image contains the app, an Applications shortcut and `INSTALL.txt`.
+license. The disk image contains a `Live Mac Wallpaper` folder (the app and
+`INSTALL.txt`) next to an Applications shortcut; users drag the folder, so the app
+installs as `/Applications/Live Mac Wallpaper/Live Mac Wallpaper.app`.
 Temporary files and the mounted image are cleaned up on errors.
 
 Local builds use the existing background and Finder icon layout. For an SSH session
@@ -71,7 +73,7 @@ After merging the workflow into `main`:
 1. Open **Actions → macOS DMG → Run workflow**.
 2. Choose the branch and leave **notarize** unchecked for a test build.
 3. Wait for the workflow to succeed.
-4. Under **Artifacts**, download `Live-Mac-Wallpaper-1.7.0-test`. The ZIP contains the
+4. Under **Artifacts**, download `Live-Mac-Wallpaper-1.8.0-test`. The ZIP contains the
    DMG and its SHA-256 file. Artifacts are retained for 30 days.
 
 Pull requests and pushes to `main` also produce test artifacts automatically.
@@ -135,8 +137,8 @@ Run the workflow with **notarize** checked. The artifact name ends in `-notarize
 Alternatively, push a tag that exactly matches the version in `project.yml`:
 
 ```sh
-git tag v1.7.0
-git push origin v1.7.0
+git tag v1.8.0
+git push origin v1.8.0
 ```
 
 Tag builds require all signing secrets and notarization; they never silently fall
@@ -148,8 +150,8 @@ create a release for that tag and attach both the DMG and its `.sha256` file.
 
 ```sh
 cd build
-shasum -a 256 -c Live-Mac-Wallpaper-1.7.0.dmg.sha256
-hdiutil verify Live-Mac-Wallpaper-1.7.0.dmg
+shasum -a 256 -c Live-Mac-Wallpaper-1.8.0.dmg.sha256
+hdiutil verify Live-Mac-Wallpaper-1.8.0.dmg
 ```
 
 Install from the mounted DMG into `/Applications`, then verify:

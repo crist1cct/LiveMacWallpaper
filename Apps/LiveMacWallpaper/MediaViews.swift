@@ -28,6 +28,7 @@ struct MotionBackdrop: View {
                     .opacity(showsVideo ? 1 : 0)
             }
         }
+        .fillWithoutOverflow()
         .task(id: item.id) {
             showsVideo = false
             guard playsVideo, item.kind == .video else { return }
@@ -204,6 +205,7 @@ struct PosterCard: View {
 /// Horizontal, view-aligned shelf of posters.
 struct PosterShelf: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.layout) private var layout
     let title: String
     var subtitle: String?
     let items: [MediaItem]
@@ -231,7 +233,7 @@ struct PosterShelf: View {
                 subtitle: subtitle,
                 action: seeAll.map { (title: "See All", run: $0) }
             )
-            .padding(.horizontal, TV.pageInset)
+            .padding(.horizontal, layout.inset)
 
             ScrollView(.horizontal) {
                 LazyHStack(alignment: .top, spacing: 28) {
@@ -248,7 +250,7 @@ struct PosterShelf: View {
                     }
                 }
                 .scrollTargetLayout()
-                .padding(.horizontal, TV.pageInset)
+                .padding(.horizontal, layout.inset)
                 // Room for the focus lift and its shadow.
                 .padding(.vertical, 22)
             }

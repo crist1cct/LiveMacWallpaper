@@ -290,9 +290,8 @@ final class WallpaperPrefs: @unchecked Sendable {
         // the authenticated user's native lock-screen presentation, then torn
         // down immediately on unlock/sleep.
         let audioReference = state.audioReference()
-        let videoURL = audioReference.videoID.flatMap(VideoLibrary.shared.videoURL(for:))
-        // The clip length comes from the player item itself; the library's probed
-        // duration can be 0 (not probed yet) or differ from the real loop length.
+        // The renderer plays its own sound, locked to its picture; only one renderer
+        // (one display) is made audible.
         LockScreenAudioController.shared.update(
             shouldPlay: lockScreenAudioEnabled
                 && isLocked
@@ -300,7 +299,6 @@ final class WallpaperPrefs: @unchecked Sendable {
                 && !state.isDisplayAsleep
                 && !activityState.lowercased().contains("suspend"),
             volume: lockScreenAudioVolume,
-            sourceURL: videoURL,
             renderer: audioReference.renderer
         )
     }

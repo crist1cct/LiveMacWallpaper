@@ -6,7 +6,7 @@ display. Written in Swift 6 with SwiftUI, AppKit, AVFoundation and ExtensionKit.
 
 | | |
 |---|---|
-| Version | 1.7.0 (build 170) |
+| Version | 1.8.0 (build 180) |
 | Bundle identifier | `com.livemacwallpaper.app` |
 | Requires | macOS 15 Sequoia or later (Lock Screen video: macOS 26 Tahoe or later) |
 | Architectures | Universal: `arm64` and `x86_64` |
@@ -92,28 +92,30 @@ The Lock Screen is served by a wallpaper extension (`WallpaperExtensionKit`) tha
 authentication UI, Touch ID and the password field remain fully owned by macOS.
 Nothing is drawn above the login window.
 
-- **Decoding** uses `AVAssetReader` → `AVSampleBufferDisplayLayer` driven by a
-  `CMTimebase`. Loops are gapless: the next reader is preloaded and sample timestamps
-  are offset by the previous loop's end, so the timeline never resets.
-- **Playback policy** eases the timebase rate in (2 s) when the lock screen appears and
-  out (6 s) when it leaves, then drops into a deep pause that releases decoder
+- **One clock for picture and sound.** Each surface has an
+  `AVSampleBufferRenderSynchronizer`. The display layer's `AVSampleBufferVideoRenderer`
+  and an `AVSampleBufferAudioRenderer` are both attached to it, so frames and audio
+  samples are presented on the same timeline, clocked by the audio hardware.
+- **Decoding.** One `AVAssetReader` per loop has two outputs: the compressed video track
+  and the first audio track decoded to 32-bit float PCM. Loops are gapless: the next
+  reader is preloaded and every video and audio timestamp is offset by the previous
+  loop's end, so the timeline never resets. Audio is cut sample-accurately at the
+  video track's end, so consecutive loops never overlap or leave a gap.
+- **Audio feeding.** Audio is read in step with the video (never behind the frames
+  already queued, which keeps the reader's two outputs balanced) and queued up to one
+  second ahead of the clock. There is no second player, no drift measurement and no
+  seeking, so there is nothing that can cause dropouts or "waves".
+- **Playback policy** eases the synchronizer rate in (2 s) when the lock screen appears
+  and out (6 s) when it leaves, then drops into a deep pause that releases decoder
   resources. Waking from deep pause resumes at the exact position inside the current
-  loop.
+  loop, for both picture and sound.
+- **Audibility.** `LockScreenAudioController` makes exactly one surface audible while
+  the session is locked and Lock Screen sound is enabled. Sound fades in over 0.5 s
+  (equal-power) once the picture runs at normal speed, and fades out over 0.15 s.
+  On unlock, sleep or suspend the volume is zeroed synchronously on every surface
+  before the queued audio is flushed.
 - **Power-aware variants** play a reduced frame-rate variant under reduced or minimal
   playback policies.
-- **Audio.** The display layer has no audio path, so `LockScreenAudioController` plays
-  the same clip in an audio-only `AVQueuePlayer` and slaves it to the video clock:
-  - the renderer exposes a thread-safe loop clock (loop start times plus a timeline
-    generation), so the audio compares against the exact position inside the
-    displayed loop rather than `timebase mod duration`;
-  - audio stays silent until the video clock runs at normal speed, then joins with a
-    0.45 s equal-power fade;
-  - drift is measured at 30 Hz, smoothed, and corrected by trimming the playback rate
-    by at most ±3 % with the `.timeDomain` pitch algorithm, so pitch is preserved;
-  - a seek happens only on start, on a new clip, or after a sustained jump of more than
-    350 ms. It happens behind a 120 ms fade-out and targets the measured seek latency;
-  - volume is cut synchronously on unlock, sleep or suspend before teardown, so
-    audio can't leak into the unlocked session.
 - On macOS 15, Lock Screen video isn't available; everything else works.
 
 ### Media pipeline
@@ -209,7 +211,7 @@ builds that run on other Macs.
 swift test
 ```
 
-The `WallpaperCoreTests` suite (Swift Testing, 30 tests) covers the media library,
+The `WallpaperCoreTests` suite (Swift Testing, 32 tests) covers the media library,
 media processing, profile validation, display targeting, runtime configuration
 migration, the Screen Saver runtime store, YouTube URL validation and import, and the
 Lock Screen store inspector.
@@ -220,16 +222,18 @@ Lock Screen store inspector.
 Tools/package_release.sh
 ```
 
-The script reads version **1.7.0 / build 170** from `project.yml`, verifies the pinned
+The script reads version **1.8.0 / build 180** from `project.yml`, verifies the pinned
 helper checksums, builds both architectures, assembles and signs the bundles, and
-verifies the DMG. Outputs: `build/Live-Mac-Wallpaper-1.7.0.dmg` and `.dmg.sha256`.
+verifies the DMG. Outputs: `build/Live-Mac-Wallpaper-1.8.0.dmg` and `.dmg.sha256`.
 The default is an **ad-hoc signed test build**, without Apple notarization.
 
 On GitHub, open **Actions → macOS DMG → Run workflow** (after this workflow has been
 merged into `main`). Leave `notarize` unchecked for a test build and download the DMG
 from the successful run's **Artifacts** section. Pull requests and pushes to `main`
-also build and test automatically. CI uses a plain DMG with the app, an Applications
-shortcut and installation instructions; a local build uses the existing Finder layout.
+also build and test automatically. The DMG contains a **Live Mac Wallpaper** folder
+(the app and `INSTALL.txt`) next to an Applications shortcut, so the app installs as
+`/Applications/Live Mac Wallpaper/Live Mac Wallpaper.app`. CI uses a plain window; a
+local build also applies the Finder layout and background.
 
 Signed and notarized build:
 

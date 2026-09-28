@@ -17,8 +17,8 @@ settings:
     ENABLE_HARDENED_RUNTIME: YES
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: 5LNL28C3Z4
-    CURRENT_PROJECT_VERSION: 170
-    MARKETING_VERSION: "1.7.0"
+    CURRENT_PROJECT_VERSION: 180
+    MARKETING_VERSION: "1.8.0"
 
 targets:
   LiveMacWallpaper:
@@ -56,7 +56,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.livemacwallpaper.app.wallpaper-extension
         PRODUCT_NAME: LiveMacWallpaperExtension
         INFOPLIST_FILE: Extensions/LiveMacWallpaperExtension/Info.plist
-        INFOPLIST_KEY_CFBundleDisplayName: Live Mac Wallpaper
+        INFOPLIST_KEY_CFBundleDisplayName: LMW
         GENERATE_INFOPLIST_FILE: YES
         ENABLE_APP_SANDBOX: YES
         CODE_SIGN_ENTITLEMENTS: Extensions/LiveMacWallpaperExtension/LiveMacWallpaperExtension.entitlements

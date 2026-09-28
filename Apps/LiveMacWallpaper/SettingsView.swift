@@ -5,6 +5,7 @@ import WallpaperCore
 /// grouped on glass. Used both as a tab in the main window and in the Settings scene.
 struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.layout) private var layout
     var isStandaloneWindow = false
 
     init(isStandaloneWindow: Bool = false) {
@@ -17,7 +18,7 @@ struct SettingsView: View {
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 30) {
                     Text("Settings")
-                        .font(.system(size: 40, weight: .bold))
+                        .font(.system(size: layout.titleSize(40), weight: .bold))
                         .foregroundStyle(.white)
 
                     SettingsGroup(title: "Playback") {
@@ -108,7 +109,7 @@ struct SettingsView: View {
                     }
                 }
                 .frame(maxWidth: 760, alignment: .leading)
-                .padding(.horizontal, TV.pageInset)
+                .padding(.horizontal, layout.inset)
                 .padding(.top, isStandaloneWindow ? 36 : 96)
                 .padding(.bottom, 60)
                 .frame(maxWidth: .infinity)
@@ -175,28 +176,48 @@ private struct SettingsRow<Accessory: View>: View {
     @ViewBuilder let accessory: Accessory
 
     var body: some View {
-        HStack(spacing: 16) {
-            Image(systemName: symbol)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 36, height: 36)
-                .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white)
-                Text(detail)
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(TV.secondaryText)
-                    .lineLimit(2)
-                    .truncationMode(.middle)
-                    .fixedSize(horizontal: false, vertical: true)
+        // Side by side when there is room; the control drops below the text otherwise.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 16) {
+                icon
+                texts.frame(minWidth: 220, alignment: .leading)
+                Spacer(minLength: 16)
+                accessory.fixedSize()
             }
-            Spacer(minLength: 16)
-            accessory
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 16) {
+                    icon
+                    texts
+                    Spacer(minLength: 0)
+                }
+                accessory
+                    .padding(.leading, 52)
+            }
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 12)
+    }
+
+    private var icon: some View {
+        Image(systemName: symbol)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 36, height: 36)
+            .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private var texts: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white)
+            Text(detail)
+                .font(.system(size: 12.5))
+                .foregroundStyle(TV.secondaryText)
+                .lineLimit(2)
+                .truncationMode(.middle)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
