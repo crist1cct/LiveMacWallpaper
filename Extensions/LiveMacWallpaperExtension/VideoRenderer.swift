@@ -114,13 +114,15 @@ final class VideoRenderer: @unchecked Sendable {
     }
 
     /// Interleaved 32-bit float PCM at the source rate and channel layout.
-    private static let audioOutputSettings: [String: Any] = [
-        AVFormatIDKey: kAudioFormatLinearPCM,
-        AVLinearPCMBitDepthKey: 32,
-        AVLinearPCMIsFloatKey: true,
-        AVLinearPCMIsBigEndianKey: false,
-        AVLinearPCMIsNonInterleaved: false,
-    ]
+    private static var audioOutputSettings: [String: Any] {
+        [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVLinearPCMBitDepthKey: 32,
+            AVLinearPCMIsFloatKey: true,
+            AVLinearPCMIsBigEndianKey: false,
+            AVLinearPCMIsNonInterleaved: false,
+        ]
+    }
 
     /// How far ahead of the clock audio is queued while audible.
     private static let audioLead: Double = 1.0
